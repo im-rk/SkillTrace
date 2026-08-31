@@ -1,0 +1,3 @@
+"""
+BKT domain parameters.
+"""
