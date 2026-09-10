@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.modules.iam.schemas import UserCreate, UserLogin, Token
 from app.modules.iam.repository import get_user_by_email, create_user
-from app.modules.iam.models import User
+from app.modules.iam.models import User, UserRole
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -19,6 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
@@ -30,27 +31,41 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def register_user(session: AsyncSession, user_in: UserCreate) -> User:
+
+async def register_user(
+    session: AsyncSession,
+    user_in: UserCreate,
+    enforce_student_role: bool = True,
+) -> User:
     user = await get_user_by_email(session, user_in.email)
     if user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
         )
+    # Safeguard against role elevation via public registration
+    effective_role = UserRole.student if enforce_student_role else user_in.role
+    user_data = user_in.model_copy(update={"role": effective_role})
     hashed_password = get_password_hash(user_in.password)
-    new_user = await create_user(session, user_in, hashed_password)
+    new_user = await create_user(session, user_data, hashed_password)
     return new_user
+
 
 async def authenticate_user(session: AsyncSession, login_data: UserLogin) -> Token:
     user = await get_user_by_email(session, login_data.email)
     if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    expires_in_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     access_token = create_access_token(
         data={"sub": str(user.id), "role": user.role.value}
     )
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=expires_in_seconds,
+    )
