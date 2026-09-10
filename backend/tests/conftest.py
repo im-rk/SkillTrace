@@ -7,6 +7,12 @@ from typing import AsyncGenerator
 import redis.asyncio as aioredis
 
 import app.modules.iam.models
+import app.modules.quiz_engine.models
+import app.modules.question_bank.models
+import app.modules.scheduling.models
+import app.modules.enrollment.models
+import app.modules.live_session_gateway.models
+import app.modules.evaluation_pipeline.models
 from app.main import app as fastapi_app
 from app.core.db.base import Base
 from app.core.db.session import get_db
@@ -16,7 +22,7 @@ from app.core.celery_app import celery_app
 TEST_DATABASE_URL = settings.DATABASE_URL
 
 engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=sa.pool.NullPool)
-TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -26,6 +32,8 @@ async def setup_db():
         await conn.execute(sa.text("CREATE SCHEMA public;"))
         await conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS citext;"))
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(sa.text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL, PRIMARY KEY (version_num));"))
+        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('a58364843b87');"))
     yield
     async with engine.begin() as conn:
         await conn.execute(sa.text("DROP SCHEMA public CASCADE;"))
