@@ -4,33 +4,20 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.iam.service import create_access_token
-from app.modules.iam.models import User, UserRole
+from app.modules.iam.models import UserRole
 from app.modules.quiz_engine.models import Skill
 
 
-async def _make_user(db_session: AsyncSession, role: UserRole) -> dict:
-    user = User(
-        email=f"{role.value}_{uuid.uuid4().hex[:8]}@example.com",
-        display_name=role.value,
-        password_hash="x",
-        role=role,
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    token = create_access_token(data={"sub": str(user.id), "role": role.value})
-    return {"Authorization": f"Bearer {token}"}
+@pytest.fixture
+async def instructor_headers(make_user):
+    headers, _ = await make_user(UserRole.instructor)
+    return headers
 
 
 @pytest.fixture
-async def instructor_headers(db_session: AsyncSession):
-    return await _make_user(db_session, UserRole.instructor)
-
-
-@pytest.fixture
-async def student_headers(db_session: AsyncSession):
-    return await _make_user(db_session, UserRole.student)
+async def student_headers(make_user):
+    headers, _ = await make_user(UserRole.student)
+    return headers
 
 
 @pytest.fixture

@@ -1,8 +1,9 @@
+import uuid
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from typing import AsyncGenerator
 import redis.asyncio as aioredis
 
@@ -18,6 +19,8 @@ from app.core.db.base import Base
 from app.core.db.session import get_db
 from app.core.config import settings
 from app.core.celery_app import celery_app
+from app.modules.iam.models import User, UserRole
+from app.modules.iam.service import create_access_token
 
 TEST_DATABASE_URL = settings.DATABASE_URL
 
@@ -80,3 +83,23 @@ async def client(db_session):
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     fastapi_app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def make_user(db_session: AsyncSession):
+    """Creates a persisted user with the given role and returns (auth_headers, user_id)."""
+
+    async def _make(role: UserRole) -> tuple[dict, str]:
+        user = User(
+            email=f"{role.value}_{uuid.uuid4().hex[:8]}@example.com",
+            display_name=role.value,
+            password_hash="x",
+            role=role,
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        token = create_access_token(data={"sub": str(user.id), "role": role.value})
+        return {"Authorization": f"Bearer {token}"}, str(user.id)
+
+    return _make

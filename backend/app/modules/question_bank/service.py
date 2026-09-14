@@ -28,11 +28,8 @@ def _to_response(question: Question) -> QuestionResponse:
     )
 
 
-async def _audit(session: AsyncSession, actor_id: UUID | None, action: str, question_id: UUID, diff: dict | None = None) -> None:
-    session.add(
-        AuditLog(actor_id=actor_id, action=action, entity_type="question", entity_id=question_id, diff=diff)
-    )
-    await session.commit()
+def _audit_entry(actor_id: UUID | None, action: str, question_id: UUID, diff: dict | None = None) -> AuditLog:
+    return AuditLog(actor_id=actor_id, action=action, entity_type="question", entity_id=question_id, diff=diff)
 
 
 async def create_question(session: AsyncSession, data: QuestionCreate, actor_id: UUID | None) -> QuestionResponse:
@@ -46,7 +43,8 @@ async def create_question(session: AsyncSession, data: QuestionCreate, actor_id:
     )
     tags = await repository.get_or_create_tags(session, data.tags)
     question = await repository.create(session, question, tags)
-    await _audit(session, actor_id, "create", question.id, diff=data.model_dump(mode="json"))
+    session.add(_audit_entry(actor_id, "create", question.id, diff=data.model_dump(mode="json")))
+    await session.commit()
     return _to_response(question)
 
 
@@ -63,12 +61,9 @@ async def list_questions(
     difficulty: str | None = None,
     tags: list[str] | None = None,
 ) -> list[QuestionResponse]:
-    if tags:
-        questions = await repository.list_by_tags(session, tags)
-    elif skill_id is not None:
-        questions = await repository.list_by_skill_and_difficulty(session, skill_id, difficulty)
-    else:
+    if skill_id is None and not tags:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="skill_id or tags is required")
+    questions = await repository.list_questions(session, skill_id, difficulty, tags)
     return [_to_response(q) for q in questions]
 
 
@@ -87,7 +82,8 @@ async def update_question(
 
     tags = await repository.get_or_create_tags(session, data.tags) if data.tags is not None else None
     question = await repository.update(session, question, tags)
-    await _audit(session, actor_id, "update", question.id, diff=data.model_dump(mode="json", exclude_unset=True))
+    session.add(_audit_entry(actor_id, "update", question.id, diff=data.model_dump(mode="json", exclude_unset=True)))
+    await session.commit()
     return _to_response(question)
 
 
@@ -96,4 +92,5 @@ async def delete_question(session: AsyncSession, question_id: UUID, actor_id: UU
     if question is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
     await repository.soft_delete(session, question)
-    await _audit(session, actor_id, "delete", question.id)
+    session.add(_audit_entry(actor_id, "delete", question.id))
+    await session.commit()
