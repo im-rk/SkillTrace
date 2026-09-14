@@ -1,6 +1,7 @@
 import enum
 from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, Integer, CheckConstraint, Index, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.db.base import Base
 
@@ -42,6 +43,8 @@ class Question(Base):
         Index("idx_questions_skill_difficulty", "skill_id", "difficulty", postgresql_where=text("deleted_at IS NULL")),
         Index("idx_questions_content_gin", "content", postgresql_using="gin"),
     )
+
+    tags = relationship("Tag", secondary="question_tags", viewonly=True)
 
 class Tag(Base):
     __tablename__ = "tags"
