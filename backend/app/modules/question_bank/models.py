@@ -44,7 +44,7 @@ class Question(Base):
         Index("idx_questions_content_gin", "content", postgresql_using="gin"),
     )
 
-    tags = relationship("Tag", secondary="question_tags", viewonly=True)
+    tags = relationship("Tag", secondary="question_tags")
 
 class Tag(Base):
     __tablename__ = "tags"
