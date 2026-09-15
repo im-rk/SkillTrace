@@ -8,7 +8,7 @@ import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from app.core.config import settings
-from app.modules.iam.schemas import UserCreate, UserLogin, Token
+from app.modules.iam.schemas import UserCreate, UserLogin, Token, TokenData
 from app.modules.iam.repository import get_user_by_email, create_user
 from app.modules.iam.models import User, UserRole
 
@@ -30,6 +30,17 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+
+def decode_access_token(token: str) -> TokenData:
+    """Stateless JWT decode shared by REST's get_current_user (raises on failure)
+    and the WebSocket access guard (catches and returns None on failure)."""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    user_id = payload.get("sub")
+    role = payload.get("role")
+    if user_id is None or role is None:
+        raise jwt.InvalidTokenError("Token missing sub or role claim")
+    return TokenData(user_id=user_id, role=UserRole(role))
 
 
 async def register_user(

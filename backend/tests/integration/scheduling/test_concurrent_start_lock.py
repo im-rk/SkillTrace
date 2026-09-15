@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.main import app as fastapi_app
 from app.modules.iam.models import UserRole
 from app.modules.live_session_gateway.models import ExamSession
-from tests.integration.scheduling.conftest import create_exam
+from tests.integration.conftest import create_exam, enroll_student
 
 
 async def _count_exam_sessions(db_session: AsyncSession, exam_id: str, student_id: str) -> int:
@@ -38,6 +38,7 @@ async def test_concurrent_start_requests_create_exactly_one_session(db_session: 
     transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         exam_id = await create_exam(client, instructor_headers, skill_id)
+        await enroll_student(client, instructor_headers, exam_id, student_id)
 
         async def attempt_start():
             return await client.post(f"/exams/{exam_id}/start", headers=student_headers)
@@ -62,6 +63,8 @@ async def test_different_students_start_concurrently_get_independent_sessions(db
     transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         exam_id = await create_exam(client, instructor_headers, skill_id)
+        for headers, sid in students:
+            await enroll_student(client, instructor_headers, exam_id, sid)
 
         async def attempt_start(headers):
             return await client.post(f"/exams/{exam_id}/start", headers=headers)

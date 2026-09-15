@@ -4,25 +4,15 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.iam.models import UserRole
-from tests.integration.scheduling.conftest import create_exam
-
-
-@pytest.fixture
-async def instructor(make_user):
-    return await make_user(UserRole.instructor)
-
-
-@pytest.fixture
-async def student(make_user):
-    return await make_user(UserRole.student)
+from tests.integration.conftest import create_exam, enroll_student
 
 
 @pytest.mark.asyncio
 async def test_case_1_start_within_window_creates_session(client: AsyncClient, instructor, student, skill_id):
     instructor_headers, _ = instructor
-    student_headers, _ = student
+    student_headers, student_id = student
     exam_id = await create_exam(client, instructor_headers, skill_id)
+    await enroll_student(client, instructor_headers, exam_id, student_id)
 
     response = await client.post(f"/exams/{exam_id}/start", headers=student_headers)
     assert response.status_code == 200
@@ -34,8 +24,9 @@ async def test_case_1_start_within_window_creates_session(client: AsyncClient, i
 @pytest.mark.asyncio
 async def test_case_2_restart_returns_same_session(client: AsyncClient, instructor, student, skill_id):
     instructor_headers, _ = instructor
-    student_headers, _ = student
+    student_headers, student_id = student
     exam_id = await create_exam(client, instructor_headers, skill_id)
+    await enroll_student(client, instructor_headers, exam_id, student_id)
 
     first = await client.post(f"/exams/{exam_id}/start", headers=student_headers)
     second = await client.post(f"/exams/{exam_id}/start", headers=student_headers)

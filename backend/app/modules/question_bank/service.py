@@ -12,7 +12,7 @@ from app.modules.question_bank.schemas import (
     QuestionUpdate,
     QuestionResponse,
 )
-from app.modules.quiz_engine.models import AuditLog
+from app.core.audit import make_audit_entry
 
 
 def _to_response(question: Question) -> QuestionResponse:
@@ -28,8 +28,8 @@ def _to_response(question: Question) -> QuestionResponse:
     )
 
 
-def _audit_entry(actor_id: UUID | None, action: str, question_id: UUID, diff: dict | None = None) -> AuditLog:
-    return AuditLog(actor_id=actor_id, action=action, entity_type="question", entity_id=question_id, diff=diff)
+def _audit_entry(actor_id: UUID | None, action: str, question_id: UUID, diff: dict | None = None):
+    return make_audit_entry(actor_id, action, "question", question_id, diff)
 
 
 async def create_question(session: AsyncSession, data: QuestionCreate, actor_id: UUID | None) -> QuestionResponse:
