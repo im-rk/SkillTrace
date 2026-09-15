@@ -3,11 +3,13 @@ Celery application instance and baseline configuration.
 """
 from celery import Celery
 from app.core.config import settings
+from worker.beat_schedule import beat_schedule
 
 celery_app = Celery(
     "skilltrace",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
+    include=["app.modules.live_session_gateway.tasks"],
 )
 
 celery_app.conf.update(
@@ -16,6 +18,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    beat_schedule=beat_schedule,
 )
 
 
