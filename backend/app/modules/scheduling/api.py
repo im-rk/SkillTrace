@@ -41,6 +41,15 @@ async def assign_questions(
     await service.assign_questions(session, exam_id, data)
 
 
+@router.post("/{exam_id}/close", response_model=ExamResponse)
+async def close_exam(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.close_exam(session, exam_id)
+
+
 @router.post("/{exam_id}/start", response_model=ExamSessionResponse)
 async def start_exam(
     exam_id: UUID,

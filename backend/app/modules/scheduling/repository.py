@@ -1,11 +1,12 @@
 """
 Data access repository for Scheduling.
 """
+from datetime import datetime
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.scheduling.models import Exam, ExamQuestion
+from app.modules.scheduling.models import Exam, ExamQuestion, ExamStatus
 from app.modules.live_session_gateway.models import ExamSession
 
 
@@ -48,3 +49,21 @@ async def get_exam_question(session: AsyncSession, exam_id: UUID, question_id: U
         select(ExamQuestion).where(ExamQuestion.exam_id == exam_id, ExamQuestion.question_id == question_id)
     )
     return result.scalars().first()
+
+
+async def close_exam(session: AsyncSession, exam: Exam) -> Exam:
+    exam.status = ExamStatus.closed
+    await session.commit()
+    await session.refresh(exam)
+    return exam
+
+
+async def find_expired_open_exams(session: AsyncSession, now: datetime) -> list[Exam]:
+    # No code in this codebase ever transitions Exam.status out of its
+    # 'draft' default into 'scheduled'/'live' (that lifecycle isn't built
+    # yet), so "not yet closed" is `!= closed` rather than an allow-list of
+    # in-progress statuses -- otherwise this sweep would never match anything.
+    result = await session.execute(
+        select(Exam).where(Exam.status != ExamStatus.closed, Exam.end_time < now)
+    )
+    return list(result.scalars().all())

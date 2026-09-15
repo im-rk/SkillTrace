@@ -37,6 +37,25 @@ async def setup_db():
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(sa.text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL, PRIMARY KEY (version_num));"))
         await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('01d667a22ab2');"))
+        # mv_exam_results is raw SQL in the migration, not a mapped model, so
+        # Base.metadata.create_all doesn't create it -- must mirror it here.
+        await conn.execute(sa.text("""
+            CREATE MATERIALIZED VIEW mv_exam_results AS
+            SELECT
+                es.exam_id,
+                es.student_id,
+                u.display_name AS student_name,
+                COUNT(r.id) AS questions_answered,
+                SUM(r.points_awarded) AS total_score,
+                MAX(r.answered_at) AS last_activity,
+                AVG(r.mastery_after) AS average_mastery
+            FROM exam_sessions es
+            JOIN users u ON es.student_id = u.id
+            LEFT JOIN responses r ON r.exam_session_id = es.id
+            WHERE es.status IN ('submitted', 'auto_submitted')
+            GROUP BY es.exam_id, es.student_id, u.display_name;
+        """))
+        await conn.execute(sa.text("CREATE UNIQUE INDEX idx_mv_exam_results_pk ON mv_exam_results(exam_id, student_id);"))
     yield
     async with engine.begin() as conn:
         await conn.execute(sa.text("DROP SCHEMA public CASCADE;"))
