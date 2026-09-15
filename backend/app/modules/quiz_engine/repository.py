@@ -15,6 +15,19 @@ async def get_skill(session: AsyncSession, skill_id: UUID) -> Skill | None:
     return result.scalars().first()
 
 
+async def list_skills(session: AsyncSession) -> list[Skill]:
+    result = await session.execute(select(Skill).where(Skill.deleted_at.is_(None)).order_by(Skill.name))
+    return list(result.scalars().all())
+
+
+async def create_skill(session: AsyncSession, name: str, slug: str, description: str | None, actor_id: UUID) -> Skill:
+    skill = Skill(name=name, slug=slug, description=description, created_by=actor_id)
+    session.add(skill)
+    await session.commit()
+    await session.refresh(skill)
+    return skill
+
+
 async def get_student_skill_state(
     session: AsyncSession, student_id: UUID, skill_id: UUID
 ) -> StudentSkillState | None:

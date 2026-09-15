@@ -19,13 +19,17 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // A FormData body must NOT get an explicit Content-Type: the browser sets
+  // its own, including the multipart boundary -- setting it manually breaks upload parsing.
+  const headers =
+    options.body instanceof FormData
+      ? options.headers
+      : { "Content-Type": "application/json", ...options.headers };
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
@@ -46,4 +50,6 @@ export const api = {
     request<T>(path, { method: "POST", body: data !== undefined ? JSON.stringify(data) : undefined }),
   patch: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PATCH", body: data !== undefined ? JSON.stringify(data) : undefined }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  postForm: <T>(path: string, formData: FormData) => request<T>(path, { method: "POST", body: formData }),
 };
