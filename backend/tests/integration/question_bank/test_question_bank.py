@@ -1,11 +1,8 @@
-import uuid
 import json
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.iam.models import UserRole
-from app.modules.quiz_engine.models import Skill
 
 
 @pytest.fixture
@@ -18,15 +15,6 @@ async def instructor_headers(make_user):
 async def student_headers(make_user):
     headers, _ = await make_user(UserRole.student)
     return headers
-
-
-@pytest.fixture
-async def skill_id(db_session: AsyncSession) -> str:
-    skill = Skill(name=f"Skill {uuid.uuid4().hex[:6]}", slug=f"skill-{uuid.uuid4().hex[:8]}")
-    db_session.add(skill)
-    await db_session.commit()
-    await db_session.refresh(skill)
-    return str(skill.id)
 
 
 def mcq_payload(skill_id: str, **overrides) -> dict:

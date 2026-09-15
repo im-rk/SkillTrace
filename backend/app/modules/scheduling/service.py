@@ -15,6 +15,7 @@ from app.modules.scheduling.models import Exam, ExamQuestion
 from app.modules.scheduling.schemas import ExamCreate, AssignQuestionsRequest, ExamSessionResponse
 from app.modules.question_bank.repository import get_by_ids as get_questions_by_ids
 from app.modules.live_session_gateway.models import ExamSession
+from app.modules.enrollment.deps import check_enrollment
 
 
 async def create_exam(session: AsyncSession, data: ExamCreate, actor_id: UUID) -> Exam:
@@ -55,14 +56,6 @@ async def assign_questions(session: AsyncSession, exam_id: UUID, data: AssignQue
     await repository.assign_questions(session, exam_id, exam_questions)
 
 
-async def verify_exam_access(session: AsyncSession, exam: Exam, student_id: UUID) -> None:
-    """ponytail: TODO(Phase 7) — replace with the real enrollment check
-    (Enrollment.verify_exam_access). No-op for now: any authenticated student
-    can start any exam. Named and called explicitly, rather than skipped
-    silently, so Phase 7 has a single obvious seam to wire into."""
-    return None
-
-
 def _to_session_response(exam_session: ExamSession) -> ExamSessionResponse:
     return ExamSessionResponse(
         session_id=exam_session.id,
@@ -99,7 +92,15 @@ async def start_exam(
             detail=f"Exam is not currently open (opens {exam.start_time.isoformat()}, closes {exam.end_time.isoformat()})",
         )
 
-    await verify_exam_access(session, exam, student_id)
+    # Calls enrollment's check_enrollment directly rather than depending on
+    # enrollment.deps.verify_exam_access via FastAPI's Depends(): that dependency
+    # resolves before this function ever runs, which would check enrollment
+    # before the exam-window check above -- the wrong order per this route's
+    # contract (409 for a closed window takes priority over 403 for enrollment).
+    # A route serving exam content with no such ordering constraint should use
+    # Depends(verify_exam_access) directly instead of this pattern.
+    if not await check_enrollment(session, student_id, exam.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enrolled in this exam")
 
     lock_acquired = await locking.acquire_start_lock(
         redis_client, str(student_id), str(exam_id), ttl_ms=settings.EXAM_START_LOCK_TTL_MS

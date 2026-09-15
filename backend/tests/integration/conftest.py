@@ -4,7 +4,18 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.iam.models import UserRole
 from app.modules.quiz_engine.models import Skill
+
+
+@pytest.fixture
+async def instructor(make_user):
+    return await make_user(UserRole.instructor)
+
+
+@pytest.fixture
+async def student(make_user):
+    return await make_user(UserRole.student)
 
 
 @pytest.fixture
@@ -34,3 +45,8 @@ async def create_exam(
     res = await client.post("/exams", json=payload, headers=instructor_headers)
     assert res.status_code == 201, res.text
     return res.json()["id"]
+
+
+async def enroll_student(client: AsyncClient, instructor_headers: dict, exam_id: str, student_id: str) -> None:
+    res = await client.post(f"/exams/{exam_id}/enroll", json={"student_id": student_id}, headers=instructor_headers)
+    assert res.status_code == 201, res.text
