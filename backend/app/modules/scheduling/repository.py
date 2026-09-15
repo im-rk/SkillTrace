@@ -51,6 +51,13 @@ async def get_exam_question(session: AsyncSession, exam_id: UUID, question_id: U
     return result.scalars().first()
 
 
+async def list_exam_questions(session: AsyncSession, exam_id: UUID) -> list[ExamQuestion]:
+    result = await session.execute(
+        select(ExamQuestion).where(ExamQuestion.exam_id == exam_id).order_by(ExamQuestion.display_order)
+    )
+    return list(result.scalars().all())
+
+
 async def close_exam(session: AsyncSession, exam: Exam) -> Exam:
     exam.status = ExamStatus.closed
     await session.commit()

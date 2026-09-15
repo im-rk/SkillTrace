@@ -8,6 +8,7 @@ from app.modules.scheduling.api import router as scheduling_router
 from app.modules.enrollment.api import router as enrollment_router
 from app.modules.evaluation_pipeline.api import router as evaluation_pipeline_router
 from app.modules.results.api import router as results_router
+from app.modules.live_session_gateway.api import router as live_session_gateway_router
 
 router = APIRouter()
 router.include_router(iam_router)
@@ -16,3 +17,4 @@ router.include_router(scheduling_router)
 router.include_router(enrollment_router)
 router.include_router(evaluation_pipeline_router)
 router.include_router(results_router)
+router.include_router(live_session_gateway_router)

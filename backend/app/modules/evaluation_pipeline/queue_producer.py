@@ -11,7 +11,7 @@ import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.evaluation_pipeline.models import SubmissionQueueLog
-from app.modules.live_session_gateway import repository as session_repository
+from app.modules.live_session_gateway.service import get_owned_session
 from app.modules.question_bank.repository import get_by_id as get_question_by_id
 from app.modules.quiz_engine import repository as quiz_repository
 from app.modules.scheduling import repository as scheduling_repository
@@ -27,11 +27,7 @@ async def submit_answer(
     answer: str,
     student_id: UUID,
 ) -> SubmissionQueueLog:
-    exam_session = await session_repository.get_session(session, exam_session_id)
-    if exam_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam session not found")
-    if exam_session.student_id != student_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your exam session")
+    exam_session = await get_owned_session(session, exam_session_id, student_id)
 
     exam_question = await scheduling_repository.get_exam_question(session, exam_session.exam_id, question_id)
     if exam_question is None:

@@ -32,6 +32,17 @@ def _audit_entry(actor_id: UUID | None, action: str, question_id: UUID, diff: di
     return make_audit_entry(actor_id, action, "question", question_id, diff)
 
 
+def strip_correct_answer(question_type, content: dict) -> dict:
+    """Question.content stores the correct answer inline (see QuestionType's
+    per-type shapes) -- never send it to a student taking the exam. Used by
+    scheduling's student-facing exam-questions endpoint, not by anything
+    instructor-facing (instructors get the full content via /question-bank)."""
+    question_type_value = question_type.value if hasattr(question_type, "value") else question_type
+    if question_type_value == "multiple_choice":
+        return {"choices": content["choices"]}
+    return {}
+
+
 async def create_question(session: AsyncSession, data: QuestionCreate, actor_id: UUID | None) -> QuestionResponse:
     question = Question(
         skill_id=data.skill_id,
