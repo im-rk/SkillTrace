@@ -17,6 +17,7 @@ from app.modules.scheduling.schemas import (
     ExamResponse,
     AssignQuestionsRequest,
     ExamSessionResponse,
+    StudentExamView,
 )
 
 router = APIRouter(prefix="/exams", tags=["scheduling"])
@@ -48,6 +49,15 @@ async def close_exam(
     current_user: TokenData = Depends(require_instructor),
 ):
     return await service.close_exam(session, exam_id)
+
+
+@router.get("/{exam_id}/questions", response_model=StudentExamView)
+async def get_exam_for_student(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    return await service.get_exam_for_student(session, exam_id, current_user.id)
 
 
 @router.post("/{exam_id}/start", response_model=ExamSessionResponse)

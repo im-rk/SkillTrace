@@ -12,8 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.modules.scheduling import repository, locking
 from app.modules.scheduling.models import Exam, ExamQuestion
-from app.modules.scheduling.schemas import ExamCreate, AssignQuestionsRequest, ExamSessionResponse
+from app.modules.scheduling.schemas import (
+    ExamCreate,
+    AssignQuestionsRequest,
+    ExamSessionResponse,
+    StudentExamQuestion,
+    StudentExamView,
+)
 from app.modules.question_bank.repository import get_by_ids as get_questions_by_ids
+from app.modules.question_bank.service import strip_correct_answer
 from app.modules.live_session_gateway.models import ExamSession
 from app.modules.enrollment.deps import check_enrollment
 from app.modules.results.tasks import refresh_exam_results_task
@@ -136,6 +143,37 @@ async def close_exam(session: AsyncSession, exam_id: UUID) -> Exam:
     if exam is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
     return await _close_exam(session, exam)
+
+
+async def get_exam_for_student(session: AsyncSession, exam_id: UUID, student_id: UUID) -> StudentExamView:
+    exam = await repository.get_exam_by_id(session, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
+    if not await check_enrollment(session, student_id, exam_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enrolled in this exam")
+
+    exam_questions = await repository.list_exam_questions(session, exam_id)
+    questions_by_id = {q.id: q for q in await get_questions_by_ids(session, [eq.question_id for eq in exam_questions])}
+
+    def _to_student_question(eq: ExamQuestion) -> StudentExamQuestion:
+        q = questions_by_id[eq.question_id]
+        return StudentExamQuestion(
+            question_id=eq.question_id,
+            prompt=q.prompt,
+            question_type=q.question_type.value,
+            difficulty=q.difficulty.value,
+            display_order=eq.display_order,
+            points=eq.points,
+            content=strip_correct_answer(q.question_type, q.content),
+        )
+
+    return StudentExamView(
+        exam_id=exam.id,
+        title=exam.title,
+        description=exam.description,
+        duration_minutes=exam.duration_minutes,
+        questions=[_to_student_question(eq) for eq in exam_questions],
+    )
 
 
 async def auto_close_expired_exams(session: AsyncSession) -> int:

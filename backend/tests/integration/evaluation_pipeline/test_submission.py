@@ -105,3 +105,40 @@ async def test_case_6b_submit_for_someone_elses_session_403(
 async def test_case_7_ensure_consumer_group_is_idempotent(redis_client):
     await ensure_consumer_group(redis_client)
     await ensure_consumer_group(redis_client)  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_submission_status_reflects_pending_then_completed(client: AsyncClient, submission_setup):
+    """Backs the frontend's "submitted, being processed" vs "confirmed
+    processed" distinction: the submit endpoint itself only ever returns 202."""
+    submit_res = await client.post(
+        f"/exam-sessions/{submission_setup['exam_session_id']}/submit-answer",
+        json={"question_id": submission_setup["question_id"], "answer": submission_setup["correct_answer"]},
+        headers=submission_setup["student_headers"],
+    )
+    log_id = submit_res.json()["log_id"]
+
+    pending_res = await client.get(f"/submissions/{log_id}", headers=submission_setup["student_headers"])
+    assert pending_res.status_code == 200
+    assert pending_res.json()["status"] == "pending"
+
+    await _process_submission(log_id)
+
+    completed_res = await client.get(f"/submissions/{log_id}", headers=submission_setup["student_headers"])
+    assert completed_res.json()["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_submission_status_for_someone_elses_submission_403(client: AsyncClient, submission_setup, make_user):
+    from app.modules.iam.models import UserRole
+
+    submit_res = await client.post(
+        f"/exam-sessions/{submission_setup['exam_session_id']}/submit-answer",
+        json={"question_id": submission_setup["question_id"], "answer": "b"},
+        headers=submission_setup["student_headers"],
+    )
+    log_id = submit_res.json()["log_id"]
+
+    other_headers, _ = await make_user(UserRole.student)
+    res = await client.get(f"/submissions/{log_id}", headers=other_headers)
+    assert res.status_code == 403

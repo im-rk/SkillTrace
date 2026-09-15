@@ -6,11 +6,13 @@ once a session already exists: heartbeats, pause/resume, and elapsed time.
 """
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.live_session_gateway import repository
 from app.modules.live_session_gateway.models import ExamSession, ExamSessionStatus, SessionEventType
+from app.modules.scheduling.repository import get_exam_by_id
 
 
 async def resolve_exam_id_for_session(session: AsyncSession, session_id: UUID) -> UUID | None:
@@ -80,6 +82,31 @@ async def compute_elapsed_active_time(session: AsyncSession, session_id: UUID) -
         total_paused += end_reference - pause_start
 
     return (end_reference - exam_session.started_at) - total_paused
+
+
+async def get_owned_session(session: AsyncSession, session_id: UUID, requester_id: UUID) -> ExamSession:
+    """Shared 404/403 ownership guard -- used by every endpoint scoped to a
+    single student's exam session (this module's own timing lookup, plus
+    evaluation_pipeline's submit-answer and submission-status endpoints)."""
+    exam_session = await repository.get_session(session, session_id)
+    if exam_session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam session not found")
+    if exam_session.student_id != requester_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your exam session")
+    return exam_session
+
+
+async def get_session_timing(session: AsyncSession, session_id: UUID, requester_id: UUID) -> dict:
+    """Backs the frontend's periodic timer resync (Phase 11): the client
+    never trusts its own tick, only this server-computed value."""
+    exam_session = await get_owned_session(session, session_id, requester_id)
+    exam = await get_exam_by_id(session, exam_session.exam_id)
+    elapsed = await compute_elapsed_active_time(session, session_id)
+    return {
+        "elapsed_active_seconds": max(int(elapsed.total_seconds()), 0),
+        "total_duration_seconds": exam.duration_minutes * 60,
+        "status": exam_session.status.value,
+    }
 
 
 async def flag_stale_sessions(session: AsyncSession) -> int:

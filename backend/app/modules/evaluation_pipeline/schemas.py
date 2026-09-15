@@ -15,3 +15,8 @@ class SubmissionPayload(BaseModel):
 class SubmissionAcceptedResponse(BaseModel):
     status: Literal["accepted"] = "accepted"
     log_id: UUID
+
+
+class SubmissionStatusResponse(BaseModel):
+    log_id: UUID
+    status: Literal["pending", "processing", "completed", "failed"]

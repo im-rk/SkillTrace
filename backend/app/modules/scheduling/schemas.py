@@ -47,3 +47,22 @@ class ExamSessionResponse(BaseModel):
     exam_id: UUID
     status: Literal["in_progress", "paused_disconnected", "submitted", "auto_submitted", "expired"]
     started_at: datetime
+
+
+class StudentExamQuestion(BaseModel):
+    question_id: UUID
+    prompt: str
+    question_type: Literal["multiple_choice", "true_false", "text_input"]
+    difficulty: Literal["easy", "medium", "hard"]
+    display_order: int
+    points: Decimal
+    # Sanitized: never includes the correct answer (see question_bank.service.strip_correct_answer).
+    content: dict
+
+
+class StudentExamView(BaseModel):
+    exam_id: UUID
+    title: str
+    description: str | None
+    duration_minutes: int
+    questions: list[StudentExamQuestion]
