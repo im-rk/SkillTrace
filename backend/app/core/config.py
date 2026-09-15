@@ -18,7 +18,13 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:16379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:16379/2"
     EXAM_START_LOCK_TTL_MS: int = 5000
-    
+
+    # Live session gateway: heartbeat cadence and the stale-disconnect threshold.
+    # Threshold starts at a generous 3x the heartbeat interval -- too aggressive
+    # flags real connections as dropped; too lenient delays noticing a real drop.
+    HEARTBEAT_INTERVAL_SECONDS: int = 10
+    STALE_SESSION_THRESHOLD_SECONDS: int = 30
+
     # Security
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
     ALGORITHM: str = "HS256"

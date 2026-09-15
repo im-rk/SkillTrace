@@ -37,6 +37,14 @@ class ExamSession(Base):
     __table_args__ = (
         UniqueConstraint("exam_id", "student_id", name="one_session_per_student_per_exam"),
         Index("idx_exam_sessions_status", "status", postgresql_where=text("status IN ('in_progress', 'paused_disconnected')")),
+        # Covers find_stale_sessions' status='in_progress' AND last_heartbeat_at < threshold
+        # lookup (Celery Beat sweep, every ~15s) with a tight index range scan
+        # instead of falling back to a filter over the whole partial index above.
+        Index(
+            "idx_exam_sessions_stale_lookup",
+            "last_heartbeat_at",
+            postgresql_where=text("status = 'in_progress'"),
+        ),
     )
 
 class SessionEvent(Base):

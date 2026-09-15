@@ -36,7 +36,7 @@ async def setup_db():
         await conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS citext;"))
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(sa.text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL, PRIMARY KEY (version_num));"))
-        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('a58364843b87');"))
+        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('01d667a22ab2');"))
     yield
     async with engine.begin() as conn:
         await conn.execute(sa.text("DROP SCHEMA public CASCADE;"))
