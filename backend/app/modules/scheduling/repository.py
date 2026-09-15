@@ -41,3 +41,10 @@ async def create_exam_session(session: AsyncSession, exam_id: UUID, student_id: 
     await session.commit()
     await session.refresh(exam_session)
     return exam_session
+
+
+async def get_exam_question(session: AsyncSession, exam_id: UUID, question_id: UUID) -> ExamQuestion | None:
+    result = await session.execute(
+        select(ExamQuestion).where(ExamQuestion.exam_id == exam_id, ExamQuestion.question_id == question_id)
+    )
+    return result.scalars().first()
