@@ -221,3 +221,81 @@ async def test_register_short_password_rejected(client: AsyncClient):
     )
     assert response.status_code == 422
 
+
+@pytest.mark.asyncio
+async def test_login_sets_httponly_auth_cookie(client: AsyncClient):
+    """The frontend authenticates via this cookie, not by reading the JWT in
+    the response body into JS -- httponly means client-side script can't."""
+    email = f"cookie_{uuid.uuid4().hex[:8]}@example.com"
+    await client.post(
+        "/auth/register", json={"email": email, "password": "SecurePassword123", "display_name": "Cookie User"}
+    )
+    response = await client.post("/auth/login", json={"email": email, "password": "SecurePassword123"})
+    assert response.status_code == 200
+    cookie = response.cookies.get("access_token")
+    assert cookie is not None
+    assert cookie == response.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_protected_route_accessible_via_cookie_alone(client: AsyncClient):
+    """No Authorization header at all -- relies entirely on the cookie the
+    AsyncClient's cookie jar picked up from the prior login response."""
+    email = f"cookieauth_{uuid.uuid4().hex[:8]}@example.com"
+    await client.post(
+        "/auth/register", json={"email": email, "password": "SecurePassword123", "display_name": "Cookie Auth User"}
+    )
+    await client.post("/auth/login", json={"email": email, "password": "SecurePassword123"})
+
+    response = await client.get("/auth/me")
+    assert response.status_code == 200
+    assert response.json()["role"] == "student"
+
+
+@pytest.mark.asyncio
+async def test_bearer_header_takes_priority_over_cookie(client: AsyncClient):
+    """A cookie left over from a different session must not silently
+    override an explicit Authorization header for a different user."""
+    email_cookie_user = f"cookieuser_{uuid.uuid4().hex[:8]}@example.com"
+    email_header_user = f"headeruser_{uuid.uuid4().hex[:8]}@example.com"
+    await client.post(
+        "/auth/register",
+        json={"email": email_cookie_user, "password": "SecurePassword123", "display_name": "Cookie Holder"},
+    )
+    header_reg = await client.post(
+        "/auth/register",
+        json={"email": email_header_user, "password": "SecurePassword123", "display_name": "Header User"},
+    )
+    header_user_id = header_reg.json()["id"]
+
+    # Cookie jar holds the cookie-user's session; the header names a
+    # different user entirely, minted directly (not via /auth/login, so it
+    # never touches the cookie jar).
+    await client.post("/auth/login", json={"email": email_cookie_user, "password": "SecurePassword123"})
+    header_token = create_access_token(data={"sub": header_user_id, "role": "student"})
+
+    response = await client.get("/auth/me", headers={"Authorization": f"Bearer {header_token}"})
+    assert response.status_code == 200
+    assert response.json()["user_id"] == header_user_id
+
+
+@pytest.mark.asyncio
+async def test_logout_clears_auth_cookie(client: AsyncClient):
+    email = f"logout_{uuid.uuid4().hex[:8]}@example.com"
+    await client.post(
+        "/auth/register", json={"email": email, "password": "SecurePassword123", "display_name": "Logout User"}
+    )
+    await client.post("/auth/login", json={"email": email, "password": "SecurePassword123"})
+
+    logout_res = await client.post("/auth/logout")
+    assert logout_res.status_code == 204
+
+    me_res = await client.get("/auth/me")
+    assert me_res.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_no_auth_at_all_is_401(client: AsyncClient):
+    response = await client.get("/auth/me")
+    assert response.status_code == 401
+

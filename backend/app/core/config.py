@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    # Frontend: the JWT is set as an httpOnly cookie on login (not exposed to
+    # JS, so an XSS bug can't exfiltrate it) rather than stored in
+    # localStorage. The Authorization: Bearer header path stays supported
+    # too, for the API/test clients that already use it.
+    FRONTEND_ORIGIN: str = "http://localhost:3000"
+    ACCESS_TOKEN_COOKIE_NAME: str = "access_token"
+    COOKIE_SECURE: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
