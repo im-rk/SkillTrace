@@ -58,3 +58,10 @@ async def create_response(session: AsyncSession, **fields) -> Response:
     response = Response(**fields)
     session.add(response)
     return response
+
+
+async def list_responses_for_exam_session(session: AsyncSession, exam_session_id: UUID) -> list[Response]:
+    result = await session.execute(
+        select(Response).where(Response.exam_session_id == exam_session_id).order_by(Response.answered_at)
+    )
+    return list(result.scalars().all())

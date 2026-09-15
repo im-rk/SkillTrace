@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # before the recovery sweep reclaims and redispatches it.
     SUBMISSION_PEL_MIN_IDLE_MS: int = 30_000
 
+    # Results: how often the beat sweep checks for exams past end_time that
+    # were never manually closed, so mv_exam_results still gets refreshed.
+    EXAM_AUTO_CLOSE_SWEEP_SECONDS: int = 60
+
     # Security
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
     ALGORITHM: str = "HS256"

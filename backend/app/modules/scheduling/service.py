@@ -16,6 +16,7 @@ from app.modules.scheduling.schemas import ExamCreate, AssignQuestionsRequest, E
 from app.modules.question_bank.repository import get_by_ids as get_questions_by_ids
 from app.modules.live_session_gateway.models import ExamSession
 from app.modules.enrollment.deps import check_enrollment
+from app.modules.results.tasks import refresh_exam_results_task
 
 
 async def create_exam(session: AsyncSession, data: ExamCreate, actor_id: UUID) -> Exam:
@@ -122,3 +123,23 @@ async def start_exam(
         return _to_session_response(exam_session)
     finally:
         await locking.release_start_lock(redis_client, str(student_id), str(exam_id))
+
+
+async def _close_exam(session: AsyncSession, exam: Exam) -> Exam:
+    exam = await repository.close_exam(session, exam)
+    refresh_exam_results_task.delay(str(exam.id))
+    return exam
+
+
+async def close_exam(session: AsyncSession, exam_id: UUID) -> Exam:
+    exam = await repository.get_exam_by_id(session, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
+    return await _close_exam(session, exam)
+
+
+async def auto_close_expired_exams(session: AsyncSession) -> int:
+    expired = await repository.find_expired_open_exams(session, datetime.now(timezone.utc))
+    for exam in expired:
+        await _close_exam(session, exam)
+    return len(expired)

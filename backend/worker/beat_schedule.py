@@ -16,5 +16,9 @@ beat_schedule = {
         # Same reasoning as above: run at roughly half the PEL idle threshold.
         "schedule": max(settings.SUBMISSION_PEL_MIN_IDLE_MS / 1000 / 2, 5.0),
     },
+    "auto-close-expired-exams": {
+        "task": "scheduling.auto_close_expired_exams",
+        "schedule": settings.EXAM_AUTO_CLOSE_SWEEP_SECONDS,
+    },
     # More tasks to be configured as modules get implemented in subsequent phases
 }
