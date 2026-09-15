@@ -11,5 +11,10 @@ beat_schedule = {
         # much later than the threshold itself implies.
         "schedule": max(settings.STALE_SESSION_THRESHOLD_SECONDS / 2, 5.0),
     },
+    "sweep-pending-submissions": {
+        "task": "evaluation_pipeline.sweep_pending_submissions",
+        # Same reasoning as above: run at roughly half the PEL idle threshold.
+        "schedule": max(settings.SUBMISSION_PEL_MIN_IDLE_MS / 1000 / 2, 5.0),
+    },
     # More tasks to be configured as modules get implemented in subsequent phases
 }

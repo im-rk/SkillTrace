@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     HEARTBEAT_INTERVAL_SECONDS: int = 10
     STALE_SESSION_THRESHOLD_SECONDS: int = 30
 
+    # Evaluation pipeline: how long a submission may sit unacked in the Redis
+    # Streams Pending Entries List (a worker likely crashed before XACK)
+    # before the recovery sweep reclaims and redispatches it.
+    SUBMISSION_PEL_MIN_IDLE_MS: int = 30_000
+
     # Security
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
     ALGORITHM: str = "HS256"
