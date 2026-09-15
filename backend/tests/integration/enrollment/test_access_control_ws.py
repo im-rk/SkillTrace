@@ -18,10 +18,11 @@ from app.modules.scheduling.models import Exam
 
 
 class FakeWebSocket:
-    """Minimal stand-in -- verify_exam_access_ws only ever reads query_params."""
+    """Minimal stand-in -- verify_exam_access_ws only ever reads query_params/cookies."""
 
     def __init__(self, token: str | None):
         self.query_params = {"token": token} if token is not None else {}
+        self.cookies = {}
 
 
 @pytest.fixture

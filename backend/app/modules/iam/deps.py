@@ -3,19 +3,34 @@ FastAPI dependencies for IAM (auth, roles).
 Provides get_current_user (stateless) and role checks.
 """
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
+from app.core.config import settings
 from app.modules.iam.schemas import TokenData
 from app.modules.iam.models import UserRole
 from app.modules.iam.service import decode_access_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# auto_error=False: the browser client authenticates via the httpOnly cookie
+# set on login, not this header, so its absence isn't itself an auth failure.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
+def get_current_user(
+    bearer_token: str | None = Depends(oauth2_scheme),
+    cookie_token: str | None = Cookie(default=None, alias=settings.ACCESS_TOKEN_COOKIE_NAME),
+) -> TokenData:
     """
-    Stateless JWT verification. Does not query the DB.
+    Stateless JWT verification. Does not query the DB. Accepts the token from
+    either the Authorization header (API/test clients) or the httpOnly
+    access_token cookie (the browser frontend) -- header takes priority.
     """
+    token = bearer_token or cookie_token
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         return decode_access_token(token)
     except (jwt.PyJWTError, ValidationError, ValueError):

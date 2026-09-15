@@ -2,8 +2,9 @@
 REST API routes for IAM.
 Includes /auth/register, /auth/login.
 """
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.core.db.session import get_db
 from app.modules.iam.schemas import UserCreate, UserLogin, Token, UserResponse, TokenData
 from app.modules.iam.service import register_user, authenticate_user
@@ -20,11 +21,26 @@ async def register(user_in: UserCreate, session: AsyncSession = Depends(get_db))
     return user
 
 @router.post("/login", response_model=Token)
-async def login(login_data: UserLogin, session: AsyncSession = Depends(get_db)):
+async def login(login_data: UserLogin, response: Response, session: AsyncSession = Depends(get_db)):
     """
-    Authenticate user and return a JWT token.
+    Authenticate user, set an httpOnly auth cookie for the browser frontend,
+    and also return the token in the body for non-browser/API clients.
     """
-    return await authenticate_user(session, login_data)
+    token = await authenticate_user(session, login_data)
+    response.set_cookie(
+        key=settings.ACCESS_TOKEN_COOKIE_NAME,
+        value=token.access_token,
+        max_age=token.expires_in,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+    return token
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    response.delete_cookie(key=settings.ACCESS_TOKEN_COOKIE_NAME, path="/")
 
 @router.get("/me", response_model=TokenData)
 async def me(current_user: TokenData = Depends(get_current_user)):

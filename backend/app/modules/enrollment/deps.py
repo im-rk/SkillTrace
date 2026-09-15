@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, WebSocket, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.db.session import get_db
 from app.modules.iam.deps import get_current_user
 from app.modules.iam.schemas import TokenData
@@ -37,7 +38,11 @@ async def verify_exam_access_ws(websocket: WebSocket, exam_id: UUID, session: As
     returns None on every failure mode (no token, malformed/expired token,
     valid token but unenrolled) instead of raising. The caller is responsible
     for closing the connection on None, before accepting it."""
-    token = websocket.query_params.get("token")
+    # A native browser WebSocket can't set custom headers, so the token is
+    # passed as a query param by non-browser/test clients; the browser
+    # frontend instead relies on the httpOnly cookie, which the browser
+    # attaches to the handshake request automatically.
+    token = websocket.query_params.get("token") or websocket.cookies.get(settings.ACCESS_TOKEN_COOKIE_NAME)
     if not token:
         return None
     try:
