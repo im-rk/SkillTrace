@@ -49,6 +49,16 @@ async def get_exam(
     return await service.get_exam(session, exam_id)
 
 
+@router.get("/{exam_id}/students/{student_id}/session", response_model=ExamSessionResponse)
+async def get_session_for_student(
+    exam_id: UUID,
+    student_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.get_session_for_student(session, exam_id, student_id)
+
+
 @router.post("/{exam_id}/questions", status_code=status.HTTP_204_NO_CONTENT)
 async def assign_questions(
     exam_id: UUID,

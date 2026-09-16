@@ -50,6 +50,16 @@ async def get_exam(session: AsyncSession, exam_id: UUID) -> Exam:
     return exam
 
 
+async def get_session_for_student(session: AsyncSession, exam_id: UUID, student_id: UUID) -> ExamSessionResponse:
+    """Resolves a student's session_id for this exam -- e.g. so an instructor
+    viewing the results overview (Phase 10, deliberately never live-joined
+    against exam_sessions) can still get to that student's audit trail."""
+    exam_session = await repository.get_exam_session(session, exam_id, student_id)
+    if exam_session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No exam session for this student")
+    return _to_session_response(exam_session)
+
+
 async def assign_questions(session: AsyncSession, exam_id: UUID, data: AssignQuestionsRequest) -> None:
     exam = await repository.get_exam_by_id(session, exam_id)
     if exam is None:

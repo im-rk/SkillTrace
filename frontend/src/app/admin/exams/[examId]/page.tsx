@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { RequireAuth } from "@/features/auth/components/RequireAuth";
 import { useAuth } from "@/features/auth/hooks/AuthContext";
 import { ApiError } from "@/lib/api-client";
@@ -60,6 +61,7 @@ function ExamDetailContent({ examId }: { examId: string }) {
           {closing ? "Closing…" : "Close exam"}
         </button>
       )}
+      <Link href={`/admin/exams/${exam.id}/results`}>View results overview</Link>
 
       <section>
         <h2>Questions</h2>
