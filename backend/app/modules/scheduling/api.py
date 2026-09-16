@@ -32,6 +32,23 @@ async def create_exam(
     return await service.create_exam(session, data, current_user.id)
 
 
+@router.get("", response_model=list[ExamResponse])
+async def list_exams(
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.list_exams(session)
+
+
+@router.get("/{exam_id}", response_model=ExamResponse)
+async def get_exam(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.get_exam(session, exam_id)
+
+
 @router.post("/{exam_id}/questions", status_code=status.HTTP_204_NO_CONTENT)
 async def assign_questions(
     exam_id: UUID,

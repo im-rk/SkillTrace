@@ -13,6 +13,7 @@ from app.modules.enrollment import service
 from app.modules.enrollment.schemas import (
     AccessCodeCreate,
     AccessCodeResponse,
+    EnrolledStudent,
     EnrollmentResponse,
     EnrollRequest,
     RedeemResult,
@@ -29,6 +30,24 @@ async def enroll_student(
     current_user: TokenData = Depends(require_instructor),
 ):
     return await service.enroll_student_manually(session, exam_id, data.student_id, current_user.id)
+
+
+@router.get("/exams/{exam_id}/enrollments", response_model=list[EnrolledStudent])
+async def list_enrollments(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.list_enrolled_students(session, exam_id)
+
+
+@router.get("/exams/{exam_id}/access-codes", response_model=list[AccessCodeResponse])
+async def list_access_codes(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.list_access_codes(session, exam_id)
 
 
 @router.post("/exams/{exam_id}/access-codes", response_model=AccessCodeResponse, status_code=status.HTTP_201_CREATED)

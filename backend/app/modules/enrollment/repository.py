@@ -4,11 +4,12 @@ Data access repository for Enrollment.
 import secrets
 from datetime import datetime
 from uuid import UUID
-from sqlalchemy import or_, select, update
+from sqlalchemy import Row, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.enrollment.models import ExamAccessCode, ExamEnrollment
+from app.modules.iam.models import User
 
 
 async def get_enrollment(session: AsyncSession, exam_id: UUID, student_id: UUID) -> ExamEnrollment | None:
@@ -25,8 +26,22 @@ async def create_enrollment(session: AsyncSession, exam_id: UUID, student_id: UU
     return enrollment
 
 
-async def list_enrollments_for_exam(session: AsyncSession, exam_id: UUID) -> list[ExamEnrollment]:
-    result = await session.execute(select(ExamEnrollment).where(ExamEnrollment.exam_id == exam_id))
+async def list_enrollments_with_students(session: AsyncSession, exam_id: UUID) -> list[Row]:
+    """Enrollment roster for the exam-admin UI -- joins in the student's
+    display_name/email since ExamEnrollment itself only has student_id."""
+    result = await session.execute(
+        select(ExamEnrollment.student_id, User.display_name, User.email, ExamEnrollment.enrolled_at)
+        .join(User, User.id == ExamEnrollment.student_id)
+        .where(ExamEnrollment.exam_id == exam_id)
+        .order_by(User.display_name)
+    )
+    return list(result.all())
+
+
+async def list_access_codes_for_exam(session: AsyncSession, exam_id: UUID) -> list[ExamAccessCode]:
+    result = await session.execute(
+        select(ExamAccessCode).where(ExamAccessCode.exam_id == exam_id).order_by(ExamAccessCode.created_at.desc())
+    )
     return list(result.scalars().all())
 
 

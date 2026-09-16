@@ -39,6 +39,17 @@ async def create_exam(session: AsyncSession, data: ExamCreate, actor_id: UUID) -
     return await repository.create_exam(session, exam)
 
 
+async def list_exams(session: AsyncSession) -> list[Exam]:
+    return await repository.list_exams(session)
+
+
+async def get_exam(session: AsyncSession, exam_id: UUID) -> Exam:
+    exam = await repository.get_exam_by_id(session, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
+    return exam
+
+
 async def assign_questions(session: AsyncSession, exam_id: UUID, data: AssignQuestionsRequest) -> None:
     exam = await repository.get_exam_by_id(session, exam_id)
     if exam is None:

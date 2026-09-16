@@ -22,6 +22,11 @@ async def get_exam_by_id(session: AsyncSession, exam_id: UUID) -> Exam | None:
     return result.scalars().first()
 
 
+async def list_exams(session: AsyncSession) -> list[Exam]:
+    result = await session.execute(select(Exam).order_by(Exam.start_time.desc()))
+    return list(result.scalars().all())
+
+
 async def assign_questions(session: AsyncSession, exam_id: UUID, exam_questions: list[ExamQuestion]) -> None:
     for eq in exam_questions:
         eq.exam_id = exam_id
