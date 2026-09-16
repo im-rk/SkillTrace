@@ -38,3 +38,10 @@ class RedeemResult(BaseModel):
     enrolled: bool
     exam_id: UUID
     access_method: Literal["manual", "access_code"]
+
+
+class EnrolledStudent(BaseModel):
+    student_id: UUID
+    display_name: str
+    email: str
+    enrolled_at: datetime
