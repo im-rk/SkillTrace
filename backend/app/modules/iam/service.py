@@ -19,7 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=settings.BCRYPT_ROUNDS)).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -58,12 +58,7 @@ async def register_user(
     # Safeguard against role elevation via public registration
     effective_role = UserRole.student if enforce_student_role else user_in.role
     user_data = user_in.model_copy(update={"role": effective_role})
-    # bcrypt is deliberately slow (~100-300ms) and synchronous -- calling it
-    # directly here would block the single-threaded event loop for the
-    # duration, serializing every other concurrent request behind it. Found
-    # via Phase 12's load test: 50 concurrent logins produced multi-second
-    # p95 latency and, under chaos-test load, an outright client timeout.
-    # asyncio.to_thread runs it on a worker thread instead.
+    # bcrypt is slow and synchronous: run it off the event loop thread (docs/adr/0008).
     hashed_password = await asyncio.to_thread(get_password_hash, user_in.password)
     new_user = await create_user(session, user_data, hashed_password)
     return new_user

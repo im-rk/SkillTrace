@@ -94,11 +94,16 @@ async def test_case_4_instructor_requests_full_overview(client, db_session: Asyn
 
 
 @pytest.mark.asyncio
-async def test_case_5_reads_succeed_against_snapshot_during_concurrent_refresh(graded_exam_setup):
-    """Two independent connections: one refreshing CONCURRENTLY, one reading.
-    Proves the refresh doesn't take an exclusive lock that blocks reads."""
+async def test_case_5_reads_succeed_against_snapshot_during_concurrent_refresh(graded_exam_setup, db_session):
+    """Two independent connections: one refreshing CONCURRENTLY, others reading.
+    Proves the refresh doesn't take an exclusive lock that blocks reads.
+
+    The view is refreshed once up front so a pre-refresh snapshot containing
+    the row exists -- otherwise a read racing the first refresh could
+    legitimately see the empty pre-refresh view."""
     exam_id = uuid.UUID(graded_exam_setup["exam_id"])
     student_id = uuid.UUID(graded_exam_setup["student_id"])
+    await refresh_exam_results(db_session)
 
     async def do_refresh():
         async with async_session_maker() as session:

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    # bcrypt work factor; tests lower it (4) purely for speed -- keep >= 12 in production.
+    BCRYPT_ROUNDS: int = 12
 
     # Frontend: the JWT is set as an httpOnly cookie on login (not exposed to
     # JS, so an XSS bug can't exfiltrate it) rather than stored in
