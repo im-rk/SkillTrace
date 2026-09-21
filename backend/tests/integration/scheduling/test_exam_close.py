@@ -44,8 +44,9 @@ async def test_auto_close_expired_exams_closes_only_past_end_time(
     )
     open_exam_id = await create_exam(client, instructor_headers, skill_id)
 
-    closed_count = await auto_close_expired_exams(db_session)
-    assert closed_count == 1
+    # The database is shared across tests, so other expired-but-open exams may exist:
+    # assert on this test's own exams, not on a global count.
+    assert await auto_close_expired_exams(db_session) >= 1
 
     expired_exam = await repository.get_exam_by_id(db_session, uuid.UUID(expired_exam_id))
     open_exam = await repository.get_exam_by_id(db_session, uuid.UUID(open_exam_id))

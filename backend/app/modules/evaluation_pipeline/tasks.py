@@ -17,6 +17,8 @@ from app.modules.evaluation_pipeline.models import SubmissionStatus
 from app.modules.evaluation_pipeline.stream_consumer import claim_and_redeliver_pending
 from app.modules.live_session_gateway import repository as session_repository
 from app.modules.question_bank.repository import get_by_id as get_question_by_id
+from app.modules.scheduling import repository as scheduling_repository
+from app.modules.scheduling.models import ExamStatus
 from app.modules.quiz_engine import repository as quiz_repository
 from app.modules.quiz_engine.domain.bkt.engine import update_mastery
 from app.modules.quiz_engine.domain.bkt.params import BKTParams
@@ -71,6 +73,9 @@ async def _process_submission(log_id: str) -> None:
             p_g_used=log_entry.p_g_used,
             p_s_used=log_entry.p_s_used,
             points_awarded=log_entry.points_possible if is_correct else Decimal("0"),
+            # Set explicitly, after the mastery row lock: the DB default (now()) is the
+            # transaction *start* time, which need not follow lock-acquisition order.
+            answered_at=datetime.now(timezone.utc),
         )
         await quiz_repository.update_student_skill_state(
             session, state, new_mastery, new_mastery >= float(skill.mastery_threshold)
@@ -78,7 +83,27 @@ async def _process_submission(log_id: str) -> None:
 
         log_entry.status = SubmissionStatus.completed
         log_entry.processed_at = datetime.now(timezone.utc)
+        exam_id = exam_session.exam_id
         await session.commit()
+
+    await _refresh_results_if_exam_closed(exam_id)
+
+
+RESULTS_REFRESH_DEBOUNCE_SECONDS = 3
+RESULTS_REFRESH_DELAY_SECONDS = 5
+
+
+async def _refresh_results_if_exam_closed(exam_id: UUID) -> None:
+    """Grading is asynchronous, so answers can still be graded after the exam is
+    closed and mv_exam_results refreshed. Schedule a follow-up refresh (debounced:
+    at most one per few seconds) so results converge instead of silently missing
+    the last answers."""
+    async with async_session_maker() as session:
+        exam = await scheduling_repository.get_exam_by_id(session, exam_id)
+    if exam is None or exam.status != ExamStatus.closed:
+        return
+    if await get_redis().set(f"debounce:results_refresh:{exam_id}", "1", nx=True, ex=RESULTS_REFRESH_DEBOUNCE_SECONDS):
+        celery_app.send_task("results.refresh_exam_results", args=[str(exam_id)], countdown=RESULTS_REFRESH_DELAY_SECONDS)
 
 
 @celery_app.task(name="evaluation_pipeline.process_submission", bind=True, max_retries=3)

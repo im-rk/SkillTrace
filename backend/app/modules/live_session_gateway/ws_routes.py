@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db.session import get_db
 from app.modules.enrollment.deps import verify_exam_access_ws
+from app.modules.live_session_gateway import repository as session_repository
 from app.modules.live_session_gateway import service as session_service
 from app.modules.live_session_gateway.websocket_manager import connection_manager
 
@@ -29,18 +30,30 @@ async def exam_session_ws(websocket: WebSocket, session_id: str, db: AsyncSessio
         await websocket.close(code=4404)
         return
 
-    exam_id = await session_service.resolve_exam_id_for_session(db, session_uuid)
-    if exam_id is None:
+    exam_session = await session_repository.get_session(db, session_uuid)
+    if exam_session is None:
         await websocket.close(code=4404)
         return
+    exam_id = exam_session.exam_id
 
     user = await verify_exam_access_ws(websocket, exam_id, db)
-    if user is None:
+    # Enrolled in the exam is not enough: the session itself must be theirs, or
+    # any enrolled student could heartbeat/pause/observe another student's session.
+    if user is None or exam_session.student_id != user.id:
         await websocket.close(code=4403)
         return  # accept() NEVER called for a rejected connection
 
     await websocket.accept()
     await connection_manager.connect(session_id, str(exam_id), websocket)
+    if exam_session.status in session_repository.ACTIVE_STATUSES:
+        # Being connected is the heartbeat: resumes a paused session right away
+        # instead of waiting for the client's first periodic heartbeat.
+        await session_service.update_heartbeat(db, session_uuid)
+    if exam_session.status not in session_repository.ACTIVE_STATUSES:
+        # Connecting to an already-ended session: converge the client immediately.
+        await websocket.send_json(
+            {"type": "time_up", "exam_id": str(exam_id), "session_id": session_id, "status": exam_session.status.value}
+        )
     try:
         while True:
             data = await websocket.receive_json()

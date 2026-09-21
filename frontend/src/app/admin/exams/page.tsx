@@ -50,7 +50,7 @@ function ExamAdminContent() {
           <ul>
             {exams.map((exam) => (
               <li key={exam.id}>
-                <Link href={`/admin/exams/${exam.id}`}>{exam.title}</Link> ({exam.status}) —{" "}
+                <Link href={`/admin/exams/${exam.id}`}>{exam.title}</Link> ({exam.phase}) —{" "}
                 <ExamTimeDisplay iso={exam.start_time} /> to <ExamTimeDisplay iso={exam.end_time} />
               </li>
             ))}

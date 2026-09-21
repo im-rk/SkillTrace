@@ -16,6 +16,7 @@ from app.modules.enrollment.schemas import (
     EnrolledStudent,
     EnrollmentResponse,
     EnrollRequest,
+    MyExam,
     RedeemResult,
 )
 
@@ -30,6 +31,14 @@ async def enroll_student(
     current_user: TokenData = Depends(require_instructor),
 ):
     return await service.enroll_student_manually(session, exam_id, data.student_id, current_user.id)
+
+
+@router.get("/me/exams", response_model=list[MyExam])
+async def list_my_exams(
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    return await service.list_my_exams(session, current_user.id)
 
 
 @router.get("/exams/{exam_id}/enrollments", response_model=list[EnrolledStudent])

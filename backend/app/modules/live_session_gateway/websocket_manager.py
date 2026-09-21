@@ -41,7 +41,12 @@ class ConnectionManager:
         ws = self._connections.get(session_id)
         if ws is None:
             return False  # this instance doesn't hold this connection
-        await ws.send_json(message)
+        try:
+            await ws.send_json(message)
+        except Exception:  # noqa: BLE001 -- a dead socket must not break delivery to everyone else
+            logger.warning("Dropping dead WebSocket for session %s", session_id)
+            self._connections.pop(session_id, None)
+            return False
         return True
 
     async def broadcast_to_exam(self, exam_id: str, message: dict) -> int:
@@ -86,7 +91,10 @@ async def redis_subscriber_loop(redis_client: redis.Redis, manager: ConnectionMa
             except (ValueError, TypeError) as e:
                 logger.warning("Malformed exam_events message, dropping: %s", e)
                 continue
-            await manager.broadcast_to_exam(exam_id, event)
+            if isinstance(event, dict) and event.get("session_id"):
+                await manager.send_to_session(event["session_id"], event)  # targeted event
+            else:
+                await manager.broadcast_to_exam(exam_id, event)
     finally:
         await pubsub.punsubscribe(f"{EXAM_EVENTS_CHANNEL_PREFIX}*")
         await pubsub.aclose()

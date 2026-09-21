@@ -7,20 +7,14 @@ const RESYNC_INTERVAL_MS = 15_000;
 const TICK_INTERVAL_MS = 1_000;
 
 /**
- * The single most important frontend design decision in this feature: never
- * end the exam because a local `setInterval` tick reached zero. This hook
- * ticks locally only for a smooth display between syncs; the actual
- * remaining time -- and the actual end-of-exam decision -- always comes
- * from this periodic resync against the server-computed elapsed time
- * (live_session_gateway.service.compute_elapsed_active_time).
+ * Never end the exam because a local `setInterval` tick reached zero. This hook
+ * ticks locally only for a smooth display between syncs; the remaining time always
+ * comes from a periodic resync against the server-computed elapsed time
+ * (live_session_gateway.service.compute_elapsed_active_time, pauses excluded).
  *
- * The phase doc's reference design treats a server-pushed WebSocket
- * "time_up" event as the real end signal and this resync as a smoothing
- * mechanism; the backend doesn't push that event (no phase has implemented
- * server-side auto-submit-on-timeout yet), so this hook's own resynced
- * value doubling as the end trigger is the honest version of the same
- * principle: the client still only ever ends the exam on a fresh value it
- * just got from the server, never on its own local countdown.
+ * The authoritative end-of-exam signal is the server's `time_up` WebSocket push
+ * (see useExamSession). This hook's resync reaching zero is the fallback for when
+ * the socket is down at that moment -- still a fresh server value, never a local guess.
  */
 export function useExamTimer(sessionId: string) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);

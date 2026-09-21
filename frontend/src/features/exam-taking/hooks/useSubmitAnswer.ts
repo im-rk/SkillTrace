@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError } from "@/lib/api-client";
 import { examTakingApi } from "@/features/exam-taking/api/exam-taking.api";
 
 export type SubmissionPhase = "idle" | "submitting" | "processing" | "confirmed" | "failed";
@@ -16,6 +17,7 @@ const POLL_INTERVAL_MS = 2_000;
  */
 export function useSubmitAnswer(sessionId: string) {
   const [phase, setPhase] = useState<SubmissionPhase>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -30,6 +32,7 @@ export function useSubmitAnswer(sessionId: string) {
   const submit = useCallback(
     async (questionId: string, answer: string) => {
       stopPolling();
+      setErrorMessage(null);
       setPhase("submitting");
       try {
         const { log_id } = await examTakingApi.submitAnswer(sessionId, questionId, answer);
@@ -46,12 +49,13 @@ export function useSubmitAnswer(sessionId: string) {
           }
         };
         await poll();
-      } catch {
+      } catch (err) {
+        setErrorMessage(err instanceof ApiError ? err.detail : "Could not submit this answer.");
         setPhase("failed");
       }
     },
     [sessionId, stopPolling],
   );
 
-  return { phase, submit };
+  return { phase, submit, errorMessage };
 }
