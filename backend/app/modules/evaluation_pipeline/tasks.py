@@ -83,7 +83,11 @@ async def _process_submission(log_id: str) -> None:
 
 @celery_app.task(name="evaluation_pipeline.process_submission", bind=True, max_retries=3)
 def process_submission(self, log_id: str) -> None:
-    run_async(_process_submission(log_id))
+    # Retrying is safe: _process_submission is idempotent.
+    try:
+        run_async(_process_submission(log_id))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 
 
 @celery_app.task(name="evaluation_pipeline.sweep_pending_submissions")

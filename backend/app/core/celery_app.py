@@ -24,6 +24,11 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule=beat_schedule,
+    # Ack after completion, and requeue if the worker process dies mid-task; without
+    # this a SIGKILLed worker silently loses the task it was running (docs/adr/0008).
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
 )
 
 

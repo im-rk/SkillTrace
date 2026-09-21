@@ -1,3 +1,20 @@
+import os
+
+# Tests run against their OWN database and Redis logical DBs, never the dev
+# stack's. This must happen before any `app.*` import: pydantic Settings reads
+# the environment once at import time, and the app's module-level engine is
+# built from it.
+_TEST_DB_NAME = os.environ.get("TEST_DB_NAME", "skilltrace_test")
+_DEV_DSN = os.environ.get("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:15432/skilltrace")
+_BASE_DSN = _DEV_DSN.rsplit("/", 1)[0]
+os.environ["DATABASE_URL"] = f"{_BASE_DSN}/{_TEST_DB_NAME}"
+os.environ["SYNC_DATABASE_URL"] = os.environ["DATABASE_URL"].replace("+asyncpg", "+psycopg")
+_REDIS_BASE = os.environ.get("REDIS_URL", "redis://localhost:16379/0").rsplit("/", 1)[0]
+os.environ["REDIS_URL"] = f"{_REDIS_BASE}/5"
+os.environ["CELERY_BROKER_URL"] = f"{_REDIS_BASE}/6"
+os.environ["CELERY_RESULT_BACKEND"] = f"{_REDIS_BASE}/7"
+os.environ["BCRYPT_ROUNDS"] = "4"
+
 import uuid
 import pytest
 import pytest_asyncio
@@ -23,13 +40,24 @@ from app.modules.iam.models import User, UserRole
 from app.modules.iam.service import create_access_token
 
 TEST_DATABASE_URL = settings.DATABASE_URL
+assert TEST_DATABASE_URL.rsplit("/", 1)[1] == _TEST_DB_NAME, "tests must never run against a non-test database"
 
 engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=sa.pool.NullPool)
 TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 
 
+async def _ensure_test_database_exists() -> None:
+    admin = create_async_engine(f"{_BASE_DSN}/postgres", isolation_level="AUTOCOMMIT", poolclass=sa.pool.NullPool)
+    async with admin.connect() as conn:
+        exists = await conn.scalar(sa.text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": _TEST_DB_NAME})
+        if not exists:
+            await conn.execute(sa.text(f'CREATE DATABASE "{_TEST_DB_NAME}"'))
+    await admin.dispose()
+
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_db():
+    await _ensure_test_database_exists()
     async with engine.begin() as conn:
         await conn.execute(sa.text("DROP SCHEMA public CASCADE;"))
         await conn.execute(sa.text("CREATE SCHEMA public;"))

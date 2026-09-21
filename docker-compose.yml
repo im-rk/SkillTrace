@@ -1,3 +1,11 @@
+x-app-env: &app-env
+  DATABASE_URL: postgresql+asyncpg://user:password@postgres:5432/skilltrace
+  SYNC_DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/skilltrace
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  SECRET_KEY: super_secret_key_skilltrace_local_dev_12345
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -32,13 +40,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/skilltrace
-      - SYNC_DATABASE_URL=postgresql+psycopg://user:password@postgres:5432/skilltrace
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - SECRET_KEY=super_secret_key_skilltrace_local_dev_12345
+    environment: *app-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,17 +50,46 @@ services:
       - ./backend:/app
 
   worker:
+    image: skilltrace-worker:latest
     build:
       context: ./backend
       dockerfile: infra/docker/worker.Dockerfile
     command: celery -A worker.celery_worker worker --loglevel=info
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/skilltrace
-      - SYNC_DATABASE_URL=postgresql+psycopg://user:password@postgres:5432/skilltrace
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - SECRET_KEY=super_secret_key_skilltrace_local_dev_12345
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  # Reads stream:submissions and dispatches evaluation_pipeline.process_submission
+  # to the worker -- without this running, submitted answers are durably
+  # logged (queue_producer's DB write) but never actually get graded. Found
+  # missing during Phase 12 load testing: neither this nor `beat` below had a
+  # compose service, so nothing in `docker compose up` actually processed a
+  # submission end-to-end.
+  stream_consumer:
+    image: skilltrace-worker:latest
+    command: python -m worker.stream_consumer
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  # Runs beat_schedule.py's periodic tasks (stale-session flagging, the
+  # submission-queue PEL recovery sweep, exam auto-close). Same gap as
+  # stream_consumer above: nothing ran these outside of tests calling the
+  # underlying functions directly.
+  beat:
+    image: skilltrace-worker:latest
+    command: celery -A worker.celery_worker beat --loglevel=info
+    environment: *app-env
     depends_on:
       postgres:
         condition: service_healthy

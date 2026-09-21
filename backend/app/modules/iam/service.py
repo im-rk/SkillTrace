@@ -2,6 +2,7 @@
 Business logic for IAM module.
 Includes auth, JWT generation, and password hashing.
 """
+import asyncio
 from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
@@ -18,7 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=settings.BCRYPT_ROUNDS)).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -57,14 +58,15 @@ async def register_user(
     # Safeguard against role elevation via public registration
     effective_role = UserRole.student if enforce_student_role else user_in.role
     user_data = user_in.model_copy(update={"role": effective_role})
-    hashed_password = get_password_hash(user_in.password)
+    # bcrypt is slow and synchronous: run it off the event loop thread (docs/adr/0008).
+    hashed_password = await asyncio.to_thread(get_password_hash, user_in.password)
     new_user = await create_user(session, user_data, hashed_password)
     return new_user
 
 
 async def authenticate_user(session: AsyncSession, login_data: UserLogin) -> Token:
     user = await get_user_by_email(session, login_data.email)
-    if not user or not verify_password(login_data.password, user.password_hash):
+    if user is None or not await asyncio.to_thread(verify_password, login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
