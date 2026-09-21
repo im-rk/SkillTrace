@@ -54,9 +54,9 @@ function ExamDetailContent({ examId }: { examId: string }) {
     <main>
       <h1>{exam.title}</h1>
       <p>
-        Status: {exam.status} — <ExamTimeDisplay iso={exam.start_time} /> to <ExamTimeDisplay iso={exam.end_time} />
+        Status: {exam.phase} — <ExamTimeDisplay iso={exam.start_time} /> to <ExamTimeDisplay iso={exam.end_time} />
       </p>
-      {exam.status !== "closed" && (
+      {exam.phase !== "closed" && (
         <button type="button" disabled={closing} onClick={handleClose}>
           {closing ? "Closing…" : "Close exam"}
         </button>

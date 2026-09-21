@@ -10,8 +10,9 @@ import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.redis_client import get_redis
 from app.modules.scheduling import repository, locking
-from app.modules.scheduling.models import Exam, ExamQuestion
+from app.modules.scheduling.models import Exam, ExamQuestion, ExamStatus
 from app.modules.scheduling.schemas import (
     ExamCreate,
     AssignQuestionsRequest,
@@ -22,6 +23,7 @@ from app.modules.scheduling.schemas import (
 from app.modules.question_bank.repository import get_by_ids as get_questions_by_ids
 from app.modules.question_bank.service import strip_correct_answer
 from app.modules.live_session_gateway.models import ExamSession
+from app.modules.live_session_gateway.service import finalize_exam_sessions
 from app.modules.enrollment.deps import check_enrollment
 from app.modules.results.tasks import refresh_exam_results_task
 
@@ -115,6 +117,8 @@ async def start_exam(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
 
     now = datetime.now(timezone.utc)
+    if exam.status == ExamStatus.closed:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This exam has been closed")
     if not (exam.start_time <= now <= exam.end_time):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -155,6 +159,8 @@ async def start_exam(
 
 async def _close_exam(session: AsyncSession, exam: Exam) -> Exam:
     exam = await repository.close_exam(session, exam)
+    # End every still-active session first: results only include ended sessions.
+    await finalize_exam_sessions(session, exam.id, get_redis())
     refresh_exam_results_task.delay(str(exam.id))
     return exam
 

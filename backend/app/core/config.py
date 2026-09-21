@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # flags real connections as dropped; too lenient delays noticing a real drop.
     HEARTBEAT_INTERVAL_SECONDS: int = 10
     STALE_SESSION_THRESHOLD_SECONDS: int = 30
+    # How often sessions past their time limit are auto-submitted. This is also the
+    # worst-case grace window in which a late answer can still be accepted.
+    AUTO_SUBMIT_SWEEP_SECONDS: int = 10
 
     # Evaluation pipeline: how long a submission may sit unacked in the Redis
     # Streams Pending Entries List (a worker likely crashed before XACK)

@@ -4,20 +4,21 @@ Session creation itself lives in scheduling.service.start_exam (it needs
 Phase 6's distributed lock); this module owns the connection's lifecycle
 once a session already exists: heartbeats, pause/resume, and elapsed time.
 """
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from fastapi import HTTPException, status
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.live_session_gateway import repository
+from app.modules.live_session_gateway.websocket_manager import broadcast_exam_event
 from app.modules.live_session_gateway.models import ExamSession, ExamSessionStatus, SessionEventType
 from app.modules.scheduling.repository import get_exam_by_id
 
 
-async def resolve_exam_id_for_session(session: AsyncSession, session_id: UUID) -> UUID | None:
-    exam_session = await repository.get_session(session, session_id)
-    return exam_session.exam_id if exam_session else None
+logger = logging.getLogger(__name__)
 
 
 async def _pause(session: AsyncSession, exam_session: ExamSession, paused_at: datetime) -> None:
@@ -31,7 +32,10 @@ async def _resume(session: AsyncSession, exam_session: ExamSession, resumed_at: 
 
 
 async def pause_session(session: AsyncSession, session_id: UUID, paused_at: datetime) -> None:
-    exam_session = await repository.get_session(session, session_id)
+    # Locked and re-read: the WebSocket handler keeps ONE DB session for the whole
+    # connection, so its identity map can hold a stale status. Acting on that would
+    # e.g. overwrite `submitted` with `paused_disconnected` when the page reloads.
+    exam_session = await repository.get_session(session, session_id, for_update=True)
     if exam_session is None or exam_session.status != ExamSessionStatus.in_progress:
         return
     await _pause(session, exam_session, paused_at)
@@ -39,7 +43,7 @@ async def pause_session(session: AsyncSession, session_id: UUID, paused_at: date
 
 
 async def resume_session(session: AsyncSession, session_id: UUID, resumed_at: datetime) -> None:
-    exam_session = await repository.get_session(session, session_id)
+    exam_session = await repository.get_session(session, session_id, for_update=True)
     if exam_session is None or exam_session.status != ExamSessionStatus.paused_disconnected:
         return
     await _resume(session, exam_session, resumed_at)
@@ -47,7 +51,7 @@ async def resume_session(session: AsyncSession, session_id: UUID, resumed_at: da
 
 
 async def update_heartbeat(session: AsyncSession, session_id: UUID) -> None:
-    exam_session = await repository.get_session(session, session_id)
+    exam_session = await repository.get_session(session, session_id, for_update=True)
     if exam_session is None:
         return
     now = datetime.now(timezone.utc)
@@ -119,3 +123,92 @@ async def flag_stale_sessions(session: AsyncSession) -> int:
         await _pause(session, exam_session, now)
     await session.commit()
     return len(stale)
+
+
+# --- Ending a session: manual submit, timeout auto-submit, instructor close ---
+
+async def _finish_session(
+    session: AsyncSession,
+    exam_session: ExamSession,
+    final_status: ExamSessionStatus,
+    event_type: SessionEventType,
+    now: datetime,
+    duration_cap_seconds: int | None = None,
+) -> None:
+    # Computed before completed_at is set: the elapsed calculation treats an
+    # unset completed_at as "still running until now".
+    elapsed = int((await compute_elapsed_active_time(session, exam_session.id)).total_seconds())
+    exam_session.total_time_used_seconds = max(min(elapsed, duration_cap_seconds) if duration_cap_seconds else elapsed, 0)
+    exam_session.completed_at = now
+    await repository.set_status(session, exam_session, final_status)
+    await repository.add_event(session, exam_session.id, event_type, now)
+
+
+async def _notify_time_up(redis_client: redis.Redis, exam_session: ExamSession) -> None:
+    """Targeted at one session: sessions of the same exam end at different
+    moments (per-student duration, pauses), so this must never be an
+    exam-wide broadcast."""
+    event = {
+        "type": "time_up",
+        "exam_id": str(exam_session.exam_id),
+        "session_id": str(exam_session.id),
+        "status": exam_session.status.value,
+    }
+    try:
+        await broadcast_exam_event(redis_client, str(exam_session.exam_id), event)
+    except Exception:  # noqa: BLE001 -- the DB state is authoritative; the client also learns via its timer resync
+        logger.exception("Could not publish time_up for session %s", exam_session.id)
+
+
+async def submit_exam_session(session: AsyncSession, session_id: UUID, requester_id: UUID) -> ExamSession:
+    """The student finishing their exam. Idempotent: submitting an already-ended
+    session just returns it."""
+    await get_owned_session(session, session_id, requester_id)
+    locked = await repository.get_session(session, session_id, for_update=True)
+    if locked.status in repository.ACTIVE_STATUSES:
+        await _finish_session(
+            session, locked, ExamSessionStatus.submitted, SessionEventType.submitted, datetime.now(timezone.utc)
+        )
+    await session.commit()
+    return locked
+
+
+async def auto_submit_expired_sessions(session: AsyncSession, redis_client: redis.Redis) -> int:
+    """Periodic sweep (Celery Beat). A session ends when its own active time
+    (pauses excluded) reaches the exam duration, or the exam window closes."""
+    now = datetime.now(timezone.utc)
+    ended: list[ExamSession] = []
+    for candidate, exam in await repository.find_expiry_candidates(session, now):
+        window_closed = exam.end_time <= now
+        if not window_closed:
+            if await compute_elapsed_active_time(session, candidate.id) < timedelta(minutes=exam.duration_minutes):
+                continue
+        locked = await repository.get_session(session, candidate.id, for_update=True)
+        if locked.status not in repository.ACTIVE_STATUSES:
+            continue  # lost a race with a manual submit
+        await _finish_session(
+            session, locked, ExamSessionStatus.auto_submitted, SessionEventType.auto_submitted, now,
+            duration_cap_seconds=exam.duration_minutes * 60,
+        )
+        ended.append(locked)
+    await session.commit()
+    for exam_session in ended:
+        await _notify_time_up(redis_client, exam_session)
+    return len(ended)
+
+
+async def finalize_exam_sessions(session: AsyncSession, exam_id: UUID, redis_client: redis.Redis) -> int:
+    """Instructor closed the exam: end every still-active session so its
+    answers count towards results (mv_exam_results only includes ended sessions)."""
+    now = datetime.now(timezone.utc)
+    ended: list[ExamSession] = []
+    for candidate in await repository.list_active_sessions_for_exam(session, exam_id):
+        locked = await repository.get_session(session, candidate.id, for_update=True)
+        if locked.status not in repository.ACTIVE_STATUSES:
+            continue
+        await _finish_session(session, locked, ExamSessionStatus.auto_submitted, SessionEventType.force_closed, now)
+        ended.append(locked)
+    await session.commit()
+    for exam_session in ended:
+        await _notify_time_up(redis_client, exam_session)
+    return len(ended)

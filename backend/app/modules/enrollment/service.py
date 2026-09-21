@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.enrollment import repository
 from app.modules.enrollment.models import ExamAccessCode, ExamEnrollment
-from app.modules.enrollment.schemas import AccessCodeCreate, EnrolledStudent, RedeemResult
+from app.modules.enrollment.schemas import AccessCodeCreate, EnrolledStudent, MyExam, RedeemResult
+from app.modules.scheduling.phase import exam_phase
 from app.core.audit import make_audit_entry
 
 
@@ -70,3 +71,15 @@ async def redeem_access_code(session: AsyncSession, code: str, student_id: UUID)
     session.add(_audit_entry(student_id, "enroll_access_code", access_code.exam_id))
     await session.commit()
     return RedeemResult(enrolled=True, exam_id=access_code.exam_id, access_method="access_code")
+
+
+async def list_my_exams(session: AsyncSession, student_id: UUID) -> list[MyExam]:
+    return [
+        MyExam(
+            exam_id=row.id, title=row.title, description=row.description, start_time=row.start_time,
+            end_time=row.end_time, duration_minutes=row.duration_minutes,
+            phase=exam_phase(row.status, row.start_time, row.end_time),
+            session_id=row.session_id, session_status=row.session_status.value if row.session_status else None,
+        )
+        for row in await repository.list_exams_for_student(session, student_id)
+    ]

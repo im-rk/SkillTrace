@@ -6,6 +6,8 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.scheduling.phase import ExamPhase
+
 
 class EnrollRequest(BaseModel):
     student_id: UUID
@@ -45,3 +47,15 @@ class EnrolledStudent(BaseModel):
     display_name: str
     email: str
     enrolled_at: datetime
+
+
+class MyExam(BaseModel):
+    exam_id: UUID
+    title: str
+    description: str | None
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    phase: ExamPhase
+    session_id: UUID | None
+    session_status: str | None

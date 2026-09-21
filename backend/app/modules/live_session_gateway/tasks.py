@@ -4,6 +4,7 @@ Celery task: periodic sweep for stale (heartbeat-missing) exam sessions.
 from app.core.async_task import run_async
 from app.core.celery_app import celery_app
 from app.core.db.session import async_session_maker
+from app.core.redis_client import get_redis
 from app.modules.live_session_gateway import service
 
 
@@ -15,3 +16,13 @@ async def _flag_stale_sessions() -> int:
 @celery_app.task(name="live_session_gateway.flag_stale_sessions")
 def flag_stale_sessions() -> int:
     return run_async(_flag_stale_sessions())
+
+
+async def _auto_submit_expired_sessions() -> int:
+    async with async_session_maker() as session:
+        return await service.auto_submit_expired_sessions(session, get_redis())
+
+
+@celery_app.task(name="live_session_gateway.auto_submit_expired_sessions")
+def auto_submit_expired_sessions() -> int:
+    return run_async(_auto_submit_expired_sessions())

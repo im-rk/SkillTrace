@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected_final";
 
@@ -19,8 +19,12 @@ const HEARTBEAT_INTERVAL_MS = 10_000;
  * cookie fallback) -- unlike the phase doc's reference snippet, this app
  * never has the JWT in JS to put there.
  */
-export function useExamSession(sessionId: string) {
+export function useExamSession(sessionId: string, options: { onTimeUp?: () => void } = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const onTimeUpRef = useRef(options.onTimeUp);
+  useEffect(() => {
+    onTimeUpRef.current = options.onTimeUp;
+  });
 
   useEffect(() => {
     let unmounted = false;
@@ -38,6 +42,16 @@ export function useExamSession(sessionId: string) {
         heartbeatTimer = setInterval(() => {
           ws?.send(JSON.stringify({ type: "heartbeat" }));
         }, HEARTBEAT_INTERVAL_MS);
+      };
+
+      // The server pushes time_up when this session is auto-submitted (out of time, or the
+      // instructor closed the exam). It is the authoritative end-of-exam signal.
+      ws.onmessage = (event) => {
+        try {
+          if (JSON.parse(event.data).type === "time_up") onTimeUpRef.current?.();
+        } catch {
+          /* ignore malformed frames */
+        }
       };
 
       ws.onclose = (event) => {

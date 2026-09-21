@@ -5,9 +5,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.modules.scheduling.models import ExamStatus
+from app.modules.scheduling.phase import ExamPhase, exam_phase
 
 
 class ExamCreate(BaseModel):
@@ -30,6 +31,11 @@ class ExamResponse(BaseModel):
     status: ExamStatus
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def phase(self) -> ExamPhase:
+        return exam_phase(self.status, self.start_time, self.end_time)
 
 
 class ExamQuestionAssign(BaseModel):

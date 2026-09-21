@@ -42,9 +42,18 @@ export interface SubmissionStatus {
   status: "pending" | "processing" | "completed" | "failed";
 }
 
+export interface SessionSubmitted {
+  session_id: string;
+  status: ExamSessionResponse["status"];
+  completed_at: string | null;
+}
+
+export const ENDED_SESSION_STATUSES: ExamSessionResponse["status"][] = ["submitted", "auto_submitted", "expired"];
+
 export const examTakingApi = {
   getExamForStudent: (examId: string) => api.get<StudentExamView>(`/exams/${examId}/questions`),
   startExam: (examId: string) => api.post<ExamSessionResponse>(`/exams/${examId}/start`),
+  submitExam: (sessionId: string) => api.post<SessionSubmitted>(`/exam-sessions/${sessionId}/submit`),
   getSessionTiming: (sessionId: string) => api.get<SessionTiming>(`/exam-sessions/${sessionId}/timing`),
   submitAnswer: (sessionId: string, questionId: string, answer: string) =>
     api.post<SubmissionAccepted>(`/exam-sessions/${sessionId}/submit-answer`, {

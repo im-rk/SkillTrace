@@ -11,6 +11,10 @@ beat_schedule = {
         # much later than the threshold itself implies.
         "schedule": max(settings.STALE_SESSION_THRESHOLD_SECONDS / 2, 5.0),
     },
+    "auto-submit-expired-sessions": {
+        "task": "live_session_gateway.auto_submit_expired_sessions",
+        "schedule": settings.AUTO_SUBMIT_SWEEP_SECONDS,
+    },
     "sweep-pending-submissions": {
         "task": "evaluation_pipeline.sweep_pending_submissions",
         # Same reasoning as above: run at roughly half the PEL idle threshold.

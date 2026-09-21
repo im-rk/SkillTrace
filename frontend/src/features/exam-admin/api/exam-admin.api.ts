@@ -11,6 +11,8 @@ export interface Exam {
   end_time: string;
   duration_minutes: number;
   status: ExamStatus;
+  // Derived from the clock (upcoming/live/ended) and Exam.status (closed) -- what people mean by "status".
+  phase: "upcoming" | "live" | "ended" | "closed";
 }
 
 export interface ExamCreate {

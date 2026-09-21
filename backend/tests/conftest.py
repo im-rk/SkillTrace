@@ -64,7 +64,7 @@ async def setup_db():
         await conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS citext;"))
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(sa.text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL, PRIMARY KEY (version_num));"))
-        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('01d667a22ab2');"))
+        await conn.execute(sa.text("INSERT INTO alembic_version (version_num) VALUES ('3c1f0a7d9e42');"))
         # mv_exam_results is raw SQL in the migration, not a mapped model, so
         # Base.metadata.create_all doesn't create it -- must mirror it here.
         await conn.execute(sa.text("""
@@ -103,6 +103,19 @@ def configure_celery_eager():
         task_always_eager=False,
         task_eager_propagates=False,
     )
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_global_redis_client():
+    """app.core.redis_client keeps one process-wide async client. It gets bound to
+    whichever event loop first uses it -- pytest's, or a TestClient's own -- and
+    reusing it from another loop breaks (pubsub crashes, "attached to a different
+    loop"). Start every test with none."""
+    from app.core.redis_client import close_redis
+
+    await close_redis()
+    yield
+    await close_redis()
 
 
 @pytest_asyncio.fixture

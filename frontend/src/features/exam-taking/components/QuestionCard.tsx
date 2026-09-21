@@ -13,10 +13,12 @@ const PHASE_LABEL: Record<string, string> = {
 
 export function QuestionCard({ sessionId, question }: { sessionId: string; question: StudentExamQuestion }) {
   const [answer, setAnswer] = useState("");
-  const { phase, submit } = useSubmitAnswer(sessionId);
+  const { phase, submit, errorMessage } = useSubmitAnswer(sessionId);
+  // An answer is final once accepted: the server takes one answer per question.
+  const locked = phase === "processing" || phase === "confirmed";
 
   return (
-    <fieldset>
+    <fieldset disabled={locked}>
       <legend>{question.prompt}</legend>
 
       {question.question_type === "multiple_choice" &&
@@ -58,7 +60,8 @@ export function QuestionCard({ sessionId, question }: { sessionId: string; quest
       <button type="button" disabled={!answer || phase === "submitting"} onClick={() => submit(question.question_id, answer)}>
         Submit answer
       </button>
-      {phase !== "idle" && <p role="status">{PHASE_LABEL[phase]}</p>}
+      {phase !== "idle" && phase !== "failed" && <p role="status">{PHASE_LABEL[phase]}</p>}
+      {phase === "failed" && <p role="alert">{errorMessage ?? PHASE_LABEL.failed}</p>}
     </fieldset>
   );
 }

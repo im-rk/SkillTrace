@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.enrollment.models import ExamAccessCode, ExamEnrollment
 from app.modules.iam.models import User
+from app.modules.live_session_gateway.models import ExamSession
+from app.modules.scheduling.models import Exam
 
 
 async def get_enrollment(session: AsyncSession, exam_id: UUID, student_id: UUID) -> ExamEnrollment | None:
@@ -88,3 +90,18 @@ async def try_increment_access_code(session: AsyncSession, code: str) -> bool:
         .values(times_used=ExamAccessCode.times_used + 1)
     )
     return result.rowcount == 1
+
+
+async def list_exams_for_student(session: AsyncSession, student_id: UUID) -> list[Row]:
+    """A student's enrolled exams, each with their own session (if they started one)."""
+    result = await session.execute(
+        select(
+            Exam.id, Exam.title, Exam.description, Exam.status, Exam.start_time, Exam.end_time,
+            Exam.duration_minutes, ExamSession.id.label("session_id"), ExamSession.status.label("session_status"),
+        )
+        .join(ExamEnrollment, ExamEnrollment.exam_id == Exam.id)
+        .outerjoin(ExamSession, (ExamSession.exam_id == Exam.id) & (ExamSession.student_id == student_id))
+        .where(ExamEnrollment.student_id == student_id)
+        .order_by(Exam.start_time.desc())
+    )
+    return list(result.all())
