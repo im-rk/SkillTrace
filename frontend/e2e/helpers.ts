@@ -46,6 +46,7 @@ export async function createExamWithCode(
 ): Promise<{ examId: string; code: string }> {
   await page.goto("/admin/exams");
   await page.getByLabel("Title").fill(opts.title);
+  await page.getByRole("combobox").selectOption({ label: "Fractions" }); // the seeded skill with a full question pool
   await page.getByLabel(/Start time/).fill(localDateTime(-5));
   await page.getByLabel(/End time/).fill(localDateTime(120));
   await page.getByLabel("Duration (minutes)").fill(String(opts.durationMinutes));

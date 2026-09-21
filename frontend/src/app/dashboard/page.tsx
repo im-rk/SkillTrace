@@ -29,12 +29,26 @@ function DashboardContent() {
               <Link href="/enroll">Join an exam with an access code</Link>
             </p>
           </section>
+          <section>
+            <h2>Practice</h2>
+            <ul>
+              <li>
+                <Link href="/practice">Adaptive practice</Link>
+              </li>
+              <li>
+                <Link href="/progress">My progress</Link>
+              </li>
+            </ul>
+          </section>
         </>
       ) : (
         <nav>
           <ul>
             <li>
               <Link href="/admin/questions">Question bank</Link>
+            </li>
+            <li>
+              <Link href="/admin/skills">Skills</Link>
             </li>
             <li>
               <Link href="/admin/exams">Exams</Link>
