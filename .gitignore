@@ -55,3 +55,6 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Phase 12 load-test subprocess logs (large, transient, machine-specific)
+backend/tests/load/_logs/

@@ -83,7 +83,15 @@ async def _process_submission(log_id: str) -> None:
 
 @celery_app.task(name="evaluation_pipeline.process_submission", bind=True, max_retries=3)
 def process_submission(self, log_id: str) -> None:
-    run_async(_process_submission(log_id))
+    # max_retries was declared but never actually wired to a retry -- an
+    # unhandled exception just failed the task once with no automatic
+    # recovery (found via Phase 12's load test hitting a rare, unrelated
+    # transient error here; the idempotency guard in _process_submission
+    # already makes retrying safe, this was just never connected).
+    try:
+        run_async(_process_submission(log_id))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 
 
 @celery_app.task(name="evaluation_pipeline.sweep_pending_submissions")

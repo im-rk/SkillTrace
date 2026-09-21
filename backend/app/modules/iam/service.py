@@ -2,6 +2,7 @@
 Business logic for IAM module.
 Includes auth, JWT generation, and password hashing.
 """
+import asyncio
 from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
@@ -57,14 +58,20 @@ async def register_user(
     # Safeguard against role elevation via public registration
     effective_role = UserRole.student if enforce_student_role else user_in.role
     user_data = user_in.model_copy(update={"role": effective_role})
-    hashed_password = get_password_hash(user_in.password)
+    # bcrypt is deliberately slow (~100-300ms) and synchronous -- calling it
+    # directly here would block the single-threaded event loop for the
+    # duration, serializing every other concurrent request behind it. Found
+    # via Phase 12's load test: 50 concurrent logins produced multi-second
+    # p95 latency and, under chaos-test load, an outright client timeout.
+    # asyncio.to_thread runs it on a worker thread instead.
+    hashed_password = await asyncio.to_thread(get_password_hash, user_in.password)
     new_user = await create_user(session, user_data, hashed_password)
     return new_user
 
 
 async def authenticate_user(session: AsyncSession, login_data: UserLogin) -> Token:
     user = await get_user_by_email(session, login_data.email)
-    if not user or not verify_password(login_data.password, user.password_hash):
+    if user is None or not await asyncio.to_thread(verify_password, login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
