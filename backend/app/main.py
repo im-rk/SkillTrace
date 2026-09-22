@@ -1,9 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as api_router
 from app.core.config import settings
+from app.core.logging import configure_logging
+from app.core.middleware import RequestIdMiddleware
+from app.api.v1.rate_limits import global_rate_limit
 from app.core.redis_client import close_redis, get_redis
 from app.modules.live_session_gateway.websocket_manager import connection_manager, run_subscriber_forever
 from app.modules.live_session_gateway.ws_routes import router as ws_router
@@ -21,6 +24,8 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
+configure_logging()
+
 app = FastAPI(title="SkillTrace Exam Platform", lifespan=lifespan)
 
 # allow_credentials requires an explicit origin list (not "*") -- the
@@ -31,9 +36,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
+# Added last, so outermost: every response, CORS preflights and 429s included, carries an id.
+app.add_middleware(RequestIdMiddleware)
 
-app.include_router(api_router)
+app.include_router(api_router, dependencies=[Depends(global_rate_limit)])
 app.include_router(ws_router)
 
 @app.get("/health")

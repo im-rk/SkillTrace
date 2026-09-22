@@ -101,4 +101,4 @@ async def test_claim_and_redeliver_pending_redispatches_and_acks(
     claimed_count = await claim_and_redeliver_pending(redis_client, min_idle_ms=0)
 
     assert claimed_count >= 1
-    send_task.assert_any_call("evaluation_pipeline.process_submission", args=[str(log_entry.id)])
+    send_task.assert_any_call("evaluation_pipeline.process_submission", args=[str(log_entry.id)], kwargs={})

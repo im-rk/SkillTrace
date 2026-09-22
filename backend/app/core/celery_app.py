@@ -2,7 +2,9 @@
 Celery application instance and baseline configuration.
 """
 from celery import Celery
+from celery.signals import setup_logging
 from app.core.config import settings
+from app.core.logging import configure_logging
 from worker.beat_schedule import beat_schedule
 
 celery_app = Celery(
@@ -30,6 +32,13 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
 )
+
+
+@setup_logging.connect
+def _configure_worker_logging(**_kwargs) -> None:
+    # Connecting to this signal stops Celery installing its own log format, so worker
+    # lines carry the same request-id field, formatted identically, as the API's.
+    configure_logging()
 
 
 @celery_app.task(name="tasks.ping")

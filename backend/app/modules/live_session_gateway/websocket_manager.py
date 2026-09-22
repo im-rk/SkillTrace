@@ -25,17 +25,32 @@ class ConnectionManager:
         self._connections: dict[str, WebSocket] = {}  # session_id -> websocket
         self._exam_sessions: dict[str, set[str]] = {}  # exam_id -> {session_id, ...}
 
-    async def connect(self, session_id: str, exam_id: str, websocket: WebSocket) -> None:
+    def has_connection(self, session_id: str) -> bool:
+        return session_id in self._connections
+
+    async def connect(self, session_id: str, exam_id: str, websocket: WebSocket) -> WebSocket | None:
+        """Registers the connection. Returns the connection it displaced, if any, so the
+        caller can close it."""
+        previous = self._connections.get(session_id)
         self._connections[session_id] = websocket
         self._exam_sessions.setdefault(exam_id, set()).add(session_id)
+        return previous
 
-    async def disconnect(self, session_id: str, exam_id: str) -> None:
+    async def disconnect(self, session_id: str, exam_id: str, websocket: WebSocket | None = None) -> bool:
+        """Unregisters the session. With `websocket`, only if it is still the registered one: a
+        connection that was replaced must not tear down its replacement. Returns whether it did."""
+        if websocket is not None and self._connections.get(session_id) is not websocket:
+            return False
         self._connections.pop(session_id, None)
         sessions = self._exam_sessions.get(exam_id)
         if sessions is not None:
             sessions.discard(session_id)
             if not sessions:
                 self._exam_sessions.pop(exam_id, None)
+        return True
+
+    def total_connection_count(self) -> int:
+        return len(self._connections)
 
     async def send_to_session(self, session_id: str, message: dict) -> bool:
         ws = self._connections.get(session_id)

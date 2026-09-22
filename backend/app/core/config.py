@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # were never manually closed, so mv_exam_results still gets refreshed.
     EXAM_AUTO_CLOSE_SWEEP_SECONDS: int = 60
 
+    # Rate limiting (Redis fixed window). The global limit is per authenticated user,
+    # or per IP for anonymous callers; redemption is limited much harder because a
+    # short access code is brute-forceable at high request rates.
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_GLOBAL_PER_MINUTE: int = 600
+    REDEEM_RATE_LIMIT_PER_USER_PER_MINUTE: int = 5
+    REDEEM_RATE_LIMIT_PER_IP_PER_MINUTE: int = 60
+
     # Security
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
     ALGORITHM: str = "HS256"

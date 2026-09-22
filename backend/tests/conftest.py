@@ -14,6 +14,8 @@ os.environ["REDIS_URL"] = f"{_REDIS_BASE}/5"
 os.environ["CELERY_BROKER_URL"] = f"{_REDIS_BASE}/6"
 os.environ["CELERY_RESULT_BACKEND"] = f"{_REDIS_BASE}/7"
 os.environ["BCRYPT_ROUNDS"] = "4"
+# Off by default so ordinary tests never trip (or share) a limiter bucket; the rate-limit tests switch it on.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 import uuid
 import pytest

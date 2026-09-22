@@ -7,8 +7,10 @@ stream:submissions and dispatches a Celery task per entry. See
 app/modules/evaluation_pipeline/stream_consumer.py for the actual loop.
 """
 import asyncio
+from app.core.logging import configure_logging
 from app.core.redis_client import get_redis
 from app.modules.evaluation_pipeline.stream_consumer import consume_submissions_loop
 
 if __name__ == "__main__":
+    configure_logging()  # same format as the API and the Celery workers, request id included
     asyncio.run(consume_submissions_loop(get_redis()))
