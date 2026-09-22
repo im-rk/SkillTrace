@@ -1,0 +1,120 @@
+# Local stand-in for a real multi-host cloud deployment (see docs/adr/0013 and
+# infra/nginx/nginx.conf) -- built images, no bind mounts, no --reload, secrets from a
+# real .env (copy .env.example), and an nginx reverse proxy in front of the backend to
+# verify WebSocket passthrough before trusting a real hosting platform's proxy with it.
+#
+#   cp .env.example .env   # fill in real values -- never commit .env
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#   curl http://localhost/health
+#   ENABLE_WS_ECHO_SPIKE=true above, then: uv run python scripts/ws_echo_check.py ws://localhost/ws/echo-test
+#
+# The frontend is intentionally NOT behind this nginx: a real deployment (per the phase
+# doc's topology) puts it on its own host/CDN (e.g. Vercel), talking to the backend
+# cross-origin over HTTPS/WSS -- this compose file mirrors that split, not a merged one.
+x-app-env: &app-env
+  DATABASE_URL: ${DATABASE_URL:?set in .env}
+  SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:?set in .env}
+  REDIS_URL: ${REDIS_URL:?set in .env}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:?set in .env}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:?set in .env}
+  SECRET_KEY: ${SECRET_KEY:?set in .env}
+  FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?set in .env}
+  COOKIE_SECURE: ${COOKIE_SECURE:-true}
+  ENABLE_WS_ECHO_SPIKE: ${ENABLE_WS_ECHO_SPIKE:-false}
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/backend.Dockerfile
+    # --proxy-headers: trust X-Forwarded-For/-Proto from the proxy in front (nginx here),
+    # so client IPs used by the rate limiter are the real caller, not the proxy's own IP.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+    environment: *app-env
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/worker.Dockerfile
+    command: celery -A worker.celery_worker worker --loglevel=info
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  stream_consumer:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/worker.Dockerfile
+    command: python -m worker.stream_consumer
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: infra/docker/worker.Dockerfile
+    command: celery -A worker.celery_worker beat --loglevel=info
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: infra/docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set in .env}
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_prod_data:

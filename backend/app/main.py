@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as api_router
 from app.core.config import settings
@@ -47,3 +47,18 @@ app.include_router(ws_router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+if settings.ENABLE_WS_ECHO_SPIKE:
+    # See ENABLE_WS_ECHO_SPIKE's docstring: a 10-line round-trip check for a newly
+    # deployed host's reverse proxy, deliberately cheaper to debug than the real
+    # exam-session WebSocket. Not registered at all unless explicitly turned on.
+    @app.websocket("/ws/echo-test")
+    async def echo_test(websocket: WebSocket):
+        await websocket.accept()
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await websocket.send_text(f"echo: {data}")
+        except WebSocketDisconnect:
+            pass

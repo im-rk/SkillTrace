@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_COOKIE_NAME: str = "access_token"
     COOKIE_SECURE: bool = False
 
+    # A minimal /ws/echo-test endpoint (see app/main.py), off by default. Flip it on
+    # temporarily on a newly deployed host to verify the platform's reverse proxy
+    # actually passes WebSocket upgrades through, BEFORE trusting the real exam-session
+    # WebSocket there -- see docs/adr/0013-websocket-deployment-verification.md.
+    ENABLE_WS_ECHO_SPIKE: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -44,6 +44,18 @@ def captured_logs():
     root.setLevel(previous_level)
 
 
+# --- deployment verification ---------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_ws_echo_spike_is_off_by_default(client):
+    """ENABLE_WS_ECHO_SPIKE gates whether app.main even registers the route -- off in every
+    normal environment (including this test suite), on only for a deliberate, temporary
+    check against a newly deployed host (see scripts/ws_echo_check.py)."""
+    assert settings.ENABLE_WS_ECHO_SPIKE is False
+    res = await client.get("/openapi.json")
+    assert "/ws/echo-test" not in res.json()["paths"]
+
+
 # --- correlation ids ----------------------------------------------------------
 
 @pytest.mark.asyncio
