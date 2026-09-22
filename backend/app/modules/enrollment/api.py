@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.rate_limits import redeem_rate_limit
 from app.core.db.session import get_db
 from app.modules.iam.deps import get_current_user, require_instructor
 from app.modules.iam.schemas import TokenData
@@ -69,7 +70,7 @@ async def create_access_code(
     return await service.generate_access_code(session, exam_id, data, current_user.id)
 
 
-@router.post("/access-codes/{code}/redeem", response_model=RedeemResult)
+@router.post("/access-codes/{code}/redeem", response_model=RedeemResult, dependencies=[Depends(redeem_rate_limit)])
 async def redeem_access_code(
     code: str,
     session: AsyncSession = Depends(get_db),

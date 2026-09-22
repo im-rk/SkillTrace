@@ -2,6 +2,7 @@
 Celery tasks for evaluation pipeline.
 Consumes stream, calls quiz_engine's BKT engine, and persists data.
 """
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
@@ -10,6 +11,7 @@ from app.core.async_task import run_async
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.core.db.session import async_session_maker
+from app.core.logging import use_request_id
 from app.core.redis_client import get_redis
 from app.modules.evaluation_pipeline import repository
 from app.modules.evaluation_pipeline.answer_evaluation import evaluate_answer
@@ -22,6 +24,9 @@ from app.modules.scheduling.models import ExamStatus
 from app.modules.quiz_engine import repository as quiz_repository
 from app.modules.quiz_engine.domain.bkt.engine import update_mastery
 from app.modules.quiz_engine.domain.bkt.params import BKTParams
+
+
+logger = logging.getLogger(__name__)
 
 
 async def _process_submission(log_id: str) -> None:
@@ -85,8 +90,16 @@ async def _process_submission(log_id: str) -> None:
         log_entry.processed_at = datetime.now(timezone.utc)
         exam_id = exam_session.exam_id
         await session.commit()
+        logger.info("Graded submission %s: correct=%s, mastery now %.4f", log_id, is_correct, new_mastery)
 
     await _refresh_results_if_exam_closed(exam_id)
+
+
+async def _process_submission_as(log_id: str, request_id: str | None) -> None:
+    # Bound inside the coroutine, on the loop thread that actually runs it, rather
+    # than relying on context propagating across run_async's thread hop.
+    with use_request_id(request_id):
+        await _process_submission(log_id)
 
 
 RESULTS_REFRESH_DEBOUNCE_SECONDS = 3
@@ -107,10 +120,10 @@ async def _refresh_results_if_exam_closed(exam_id: UUID) -> None:
 
 
 @celery_app.task(name="evaluation_pipeline.process_submission", bind=True, max_retries=3)
-def process_submission(self, log_id: str) -> None:
+def process_submission(self, log_id: str, request_id: str | None = None) -> None:
     # Retrying is safe: _process_submission is idempotent.
     try:
-        run_async(_process_submission(log_id))
+        run_async(_process_submission_as(log_id, request_id))
     except Exception as exc:
         raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 

@@ -5,18 +5,22 @@ Writes submission_queue_log row and pushes to Redis Stream.
 No import of app.modules.quiz_engine.domain.bkt anywhere in this file --
 this path only ever logs and enqueues, it never computes mastery.
 """
+import logging
 from uuid import UUID
 from fastapi import HTTPException, status
 import redis.asyncio as redis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import current_request_id
 from app.modules.evaluation_pipeline.models import SubmissionQueueLog
 from app.modules.live_session_gateway.models import ExamSessionStatus
 from app.modules.live_session_gateway.service import get_owned_session
 from app.modules.question_bank.repository import get_by_id as get_question_by_id
 from app.modules.quiz_engine import repository as quiz_repository
 from app.modules.scheduling import repository as scheduling_repository
+
+logger = logging.getLogger(__name__)
 
 SUBMISSIONS_STREAM = "stream:submissions"
 
@@ -72,6 +76,12 @@ async def submit_answer(
 
     # STEP 2 -- fast, but NOT the durability guarantee. If this fails, the
     # committed row from Step 1 still exists and is recoverable.
-    await redis_client.xadd(SUBMISSIONS_STREAM, {"log_id": str(log_entry.id)})
+    # The request id rides in the message so the consumer and the Celery task can log
+    # under the same id as the HTTP request that caused them.
+    fields = {"log_id": str(log_entry.id)}
+    if request_id := current_request_id():
+        fields["request_id"] = request_id
+    await redis_client.xadd(SUBMISSIONS_STREAM, fields)
+    logger.info("Submission %s queued for grading (session %s)", log_entry.id, exam_session_id)
 
     return log_entry

@@ -18,6 +18,7 @@ import uuid
 import redis.asyncio as redis
 
 from app.core.celery_app import celery_app
+from app.core.logging import use_request_id
 from app.modules.evaluation_pipeline.queue_producer import SUBMISSIONS_STREAM
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,12 @@ SUBMISSIONS_CONSUMER_GROUP = "bkt_workers"
 PROCESS_SUBMISSION_TASK_NAME = "evaluation_pipeline.process_submission"
 
 
-def _dispatch(log_id: str) -> None:
-    celery_app.send_task(PROCESS_SUBMISSION_TASK_NAME, args=[log_id])
+def _dispatch(log_id: str, request_id: str | None = None) -> None:
+    with use_request_id(request_id):
+        logger.info("Dispatching submission %s to a worker", log_id)
+    celery_app.send_task(
+        PROCESS_SUBMISSION_TASK_NAME, args=[log_id], kwargs={"request_id": request_id} if request_id else {}
+    )
 
 
 async def ensure_consumer_group(redis_client: redis.Redis) -> None:
@@ -52,7 +57,7 @@ async def consume_submissions_loop(redis_client: redis.Redis, consumer_name: str
                 continue
             message_ids = []
             for message_id, fields in entries:
-                _dispatch(fields["log_id"])
+                _dispatch(fields["log_id"], fields.get("request_id"))
                 message_ids.append(message_id)
             # Ack right after successful dispatch, not after processing
             # completes -- see module docstring. One batched call per read.
@@ -83,7 +88,7 @@ async def claim_and_redeliver_pending(
             break
         message_ids = []
         for message_id, fields in messages:
-            _dispatch(fields["log_id"])
+            _dispatch(fields["log_id"], fields.get("request_id"))
             message_ids.append(message_id)
         await redis_client.xack(SUBMISSIONS_STREAM, SUBMISSIONS_CONSUMER_GROUP, *message_ids)
         claimed_total += len(message_ids)

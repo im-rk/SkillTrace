@@ -14,3 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def refresh_exam_results(session: AsyncSession) -> None:
     await session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_exam_results"))
     await session.commit()
+
+
+async def rebuild_exam_results(session: AsyncSession) -> None:
+    """Disaster-recovery rebuild: a plain REFRESH recomputes the view from scratch. Unlike
+    CONCURRENTLY it locks out readers for the duration, and it does not need the unique
+    index, so it also works if that index is the thing that is damaged."""
+    await session.execute(text("REFRESH MATERIALIZED VIEW mv_exam_results"))
+    await session.commit()
