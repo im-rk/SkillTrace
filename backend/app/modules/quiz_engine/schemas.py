@@ -131,6 +131,11 @@ class ProgressPoint(BaseModel):
     mastery_after: float
     is_correct: bool
     source: Literal["practice", "exam"]
+    # The single most likely hidden mastery state AFTER this answer, decoded by
+    # Viterbi over the WHOLE sequence at once (see domain/bkt/viterbi.py) -- a
+    # hindsight-informed hard 0/1 call, distinct from mastery_after's continuous,
+    # forward-only filtered belief. Monotonic: once True, never False again.
+    viterbi_mastered: bool
 
 
 class ProgressResponse(BaseModel):

@@ -217,6 +217,9 @@ async def list_progress_rows(session: AsyncSession, student_id: UUID, skill_id: 
             Response.mastery_before,
             Response.mastery_after,
             Response.is_correct,
+            Response.p_t_used,
+            Response.p_g_used,
+            Response.p_s_used,
             case((Response.session_id.is_not(None), "practice"), else_="exam").label("source"),
         )
         .join(Question, Question.id == Response.question_id)

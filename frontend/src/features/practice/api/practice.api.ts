@@ -56,6 +56,11 @@ export interface ProgressPoint {
   mastery_after: number;
   is_correct: boolean;
   source: "practice" | "exam";
+  // The most likely mastery state after this answer, decoded (via Viterbi) from the
+  // WHOLE sequence at once -- a hindsight-informed hard yes/no, monotonic (once true,
+  // stays true). Different from mastery_after, which is the forward-only, continuous
+  // belief at that exact point in time.
+  viterbi_mastered: boolean;
 }
 
 export interface Progress {

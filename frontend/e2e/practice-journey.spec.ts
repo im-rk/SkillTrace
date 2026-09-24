@@ -102,6 +102,9 @@ test.describe("free-practice adaptive quiz (real browser, real backend)", () => 
     await expect(page.getByTestId("progress-summary")).toContainText(`${answered} answers`);
     await expect(page.getByTestId("progress-chart").locator(".recharts-line-curve")).toBeVisible();
     await expect(page.getByTestId("progress-chart").locator(".recharts-line-dot")).toHaveCount(answered + 1); // + the starting estimate
+    // Viterbi's discrete "most likely mastered here" call: the student reached mastery,
+    // so somewhere in the sequence the reconstructed trajectory should flip to mastered.
+    await expect(page.getByTestId("progress-chart").getByText("Likely mastered here")).toBeVisible();
 
     // Instructor sees the student in the skill's mastery table.
     const instructor = await newSession(browser);
