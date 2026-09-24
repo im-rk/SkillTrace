@@ -66,7 +66,7 @@ function SkillEditor({ skill, onChanged, onDeleted }: { skill: Skill; onChanged:
         <input value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       {PARAMS.map(([key, label]) => (
-        <label key={key} style={{ display: "block" }}>
+        <label key={key}>
           {label}
           <input
             type="number"
@@ -82,7 +82,7 @@ function SkillEditor({ skill, onChanged, onDeleted }: { skill: Skill; onChanged:
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       <button type="submit">Save skill</button>{" "}
-      <button type="button" onClick={remove}>
+      <button type="button" data-variant="danger" onClick={remove}>
         Delete skill
       </button>
     </form>

@@ -107,7 +107,7 @@ function QuizContent({ sessionId }: { sessionId: string }) {
       {view.kind === "question" && (
         <>
           <PracticeQuestionCard key={view.question.id} question={view.question} submitting={submitting} onSubmit={(a) => submit(view.question, a)} />
-          <button type="button" onClick={quit}>
+          <button type="button" data-variant="secondary" onClick={quit}>
             End session
           </button>
         </>

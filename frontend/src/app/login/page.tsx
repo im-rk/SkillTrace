@@ -3,7 +3,7 @@ import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export default function LoginPage() {
   return (
-    <main>
+    <main className="auth-card">
       <h1>Log in</h1>
       <LoginForm />
       <p>

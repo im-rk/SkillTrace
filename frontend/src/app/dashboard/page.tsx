@@ -1,19 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/features/auth/components/RequireAuth";
 import { useAuth } from "@/features/auth/hooks/AuthContext";
 import { MyExams } from "@/features/enrollment/components/MyExams";
 
 function DashboardContent() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-
-  async function handleLogout() {
-    await logout();
-    router.push("/login");
-  }
+  const { user } = useAuth();
 
   return (
     <main>
@@ -56,8 +49,6 @@ function DashboardContent() {
           </ul>
         </nav>
       )}
-
-      <button onClick={handleLogout}>Log out</button>
     </main>
   );
 }
