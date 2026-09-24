@@ -202,6 +202,18 @@ async def test_case_3_sixth_redemption_attempt_in_a_minute_is_rate_limited(clien
 
 
 @pytest.mark.asyncio
+async def test_login_and_register_are_rate_limited_per_ip(client, limiter_on, monkeypatch):
+    monkeypatch.setattr(settings, "AUTH_RATE_LIMIT_PER_IP_PER_MINUTE", 3)
+    bad = {"email": "nobody@example.com", "password": "wrong-password"}
+    statuses = [(await client.post("/auth/login", json=bad)).status_code for _ in range(4)]
+    assert statuses[:3] == [401, 401, 401] and statuses[3] == 429  # guessing is cut off, not just refused
+
+    # register shares the same per-IP budget: it is the mass-account-creation surface
+    res = await client.post("/auth/register", json={"email": "x@example.com", "password": "Passw0rd!x", "display_name": "X"})
+    assert res.status_code == 429
+
+
+@pytest.mark.asyncio
 async def test_redemption_limit_is_per_user_not_shared(client, limiter_on, student, make_user):
     headers, _ = student
     for i in range(6):

@@ -1,0 +1,65 @@
+# CI: every PR must pass the backend integration suite (real Postgres + Redis) and the
+# frontend lint + production build. The browser E2E suite needs the whole stack (API,
+# worker, stream consumer, beat, seeded data) and is run locally via `npm run e2e`; it is
+# deliberately not part of this pipeline.
+name: CI
+
+on:
+  pull_request:
+    branches: [development, main]
+  push:
+    branches: [development, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: skilltrace
+        ports: ["15432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U user -d skilltrace"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+      redis:
+        image: redis:7-alpine
+        ports: ["16379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      # The test suite points itself at its own `skilltrace_test` database and Redis DBs 5/6/7
+      # (tests/conftest.py); the ports above match the defaults it derives them from.
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

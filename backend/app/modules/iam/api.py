@@ -8,11 +8,12 @@ from app.core.config import settings
 from app.core.db.session import get_db
 from app.modules.iam.schemas import UserCreate, UserLogin, Token, UserResponse, TokenData
 from app.modules.iam.service import register_user, authenticate_user
+from app.api.v1.rate_limits import auth_rate_limit
 from app.modules.iam.deps import get_current_user, require_instructor, require_admin
 
 router = APIRouter(prefix="/auth", tags=["iam"])
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(auth_rate_limit)])
 async def register(user_in: UserCreate, session: AsyncSession = Depends(get_db)):
     """
     Register a new user. Public registration defaults to student role.
@@ -20,7 +21,7 @@ async def register(user_in: UserCreate, session: AsyncSession = Depends(get_db))
     user = await register_user(session, user_in)
     return user
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(auth_rate_limit)])
 async def login(login_data: UserLogin, response: Response, session: AsyncSession = Depends(get_db)):
     """
     Authenticate user, set an httpOnly auth cookie for the browser frontend,
