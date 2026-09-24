@@ -25,3 +25,21 @@ async def list_exam_results(session: AsyncSession, exam_id: UUID) -> list[Row]:
         {"exam_id": exam_id},
     )
     return list(result.all())
+
+
+async def list_item_analysis_rows(session: AsyncSession, exam_id: UUID) -> list[Row]:
+    """One row per (question, student) who answered it, restricted to students eligible
+    for this exam's results (same submitted/auto_submitted restriction mv_exam_results
+    itself applies -- joining through it reuses that definition rather than repeating
+    it), carrying that student's overall exam score for the top/bottom split."""
+    result = await session.execute(
+        text(
+            "SELECT r.question_id, es.student_id, r.is_correct, mv.total_score"
+            " FROM responses r"
+            " JOIN exam_sessions es ON es.id = r.exam_session_id"
+            " JOIN mv_exam_results mv ON mv.exam_id = es.exam_id AND mv.student_id = es.student_id"
+            " WHERE es.exam_id = :exam_id"
+        ),
+        {"exam_id": exam_id},
+    )
+    return list(result.all())

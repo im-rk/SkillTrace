@@ -72,6 +72,12 @@ test.describe("exam journey (instructor + student, real browser, real backend)",
       await expect(instructor.page.getByRole("row", { name: /E2E Student/ })).toContainText("3"); // 3 of 3 correct
     }).toPass({ timeout: 60_000 });
 
+    // Item analysis: one student, everyone got every question right -> 100% difficulty,
+    // discrimination undefined (too few students for a meaningful top/bottom split).
+    const itemRow = instructor.page.getByRole("row", { name: PROMPTS[0] });
+    await expect(itemRow).toContainText("100%");
+    await expect(itemRow).toContainText("too few students");
+
     await expect(async () => {
       await page.goto(`/exams/${examId}/results`);
       await expect(page.getByText("Total score")).toBeVisible();
