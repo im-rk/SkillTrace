@@ -38,6 +38,11 @@ async def global_rate_limit(request: Request) -> None:
         await enforce(get_redis(), f"global:{_principal(request)}", settings.RATE_LIMIT_GLOBAL_PER_MINUTE)
 
 
+async def auth_rate_limit(request: Request) -> None:
+    if settings.RATE_LIMIT_ENABLED:
+        await enforce(get_redis(), f"auth:ip:{_client_ip(request)}", settings.AUTH_RATE_LIMIT_PER_IP_PER_MINUTE)
+
+
 async def redeem_rate_limit(request: Request, current_user: TokenData = Depends(get_current_user)) -> None:
     """Access-code redemption is the brute-force surface. Per user, so one account can't
     enumerate codes, plus per IP, so a rotating set of accounts can't either -- with the IP

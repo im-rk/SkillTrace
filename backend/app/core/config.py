@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_GLOBAL_PER_MINUTE: int = 600
     REDEEM_RATE_LIMIT_PER_USER_PER_MINUTE: int = 5
     REDEEM_RATE_LIMIT_PER_IP_PER_MINUTE: int = 60
+    # Login/register are unauthenticated, so the caller's IP is the only handle: bounds password guessing
+    # and mass account creation. Generous enough for a classroom behind one NAT.
+    AUTH_RATE_LIMIT_PER_IP_PER_MINUTE: int = 30
 
     # Security
     SECRET_KEY: str = "super_secret_key_skilltrace_local_dev_12345"
