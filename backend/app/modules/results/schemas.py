@@ -35,3 +35,17 @@ class AuditEvent(BaseModel):
 class AuditTrailResponse(BaseModel):
     session_id: UUID
     events: list[AuditEvent]
+
+
+class ItemAnalysisRow(BaseModel):
+    question_id: UUID
+    prompt: str
+    sample_size: int
+    # None means "not enough data" (see item_analysis.py's thresholds), not zero.
+    p_value: float | None
+    discrimination: float | None
+
+
+class ItemAnalysisResponse(BaseModel):
+    exam_id: UUID
+    items: list[ItemAnalysisRow]

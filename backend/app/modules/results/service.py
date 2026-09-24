@@ -8,9 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.iam.models import UserRole
 from app.modules.live_session_gateway import repository as gateway_repository
+from app.modules.question_bank.repository import get_by_ids as get_questions_by_ids
 from app.modules.quiz_engine import repository as quiz_repository
 from app.modules.results import repository
-from app.modules.results.schemas import AuditEvent, ExamOverviewResponse, ExamResultRow, StudentExamResult
+from app.modules.results.item_analysis import compute_item_analysis
+from app.modules.results.schemas import (
+    AuditEvent,
+    ExamOverviewResponse,
+    ExamResultRow,
+    ItemAnalysisResponse,
+    ItemAnalysisRow,
+    StudentExamResult,
+)
 
 
 def _score_fields(row) -> tuple[float, float | None]:
@@ -53,6 +62,33 @@ async def get_exam_overview(session: AsyncSession, exam_id: UUID) -> ExamOvervie
             )
         )
     return ExamOverviewResponse(exam_id=exam_id, results=results)
+
+
+async def get_exam_item_analysis(session: AsyncSession, exam_id: UUID) -> ItemAnalysisResponse:
+    rows = await repository.list_item_analysis_rows(session, exam_id)
+
+    total_scores: dict[UUID, float] = {}
+    responses_by_question: dict[UUID, dict[UUID, bool]] = {}
+    for row in rows:
+        total_scores[row.student_id] = float(row.total_score or 0)
+        responses_by_question.setdefault(row.question_id, {})[row.student_id] = row.is_correct
+
+    stats = compute_item_analysis(total_scores, responses_by_question)
+    questions = await get_questions_by_ids(session, list(responses_by_question))
+    prompts = {q.id: q.prompt for q in questions}
+
+    items = [
+        ItemAnalysisRow(
+            question_id=question_id,
+            prompt=prompts.get(question_id, "(question no longer in the bank)"),
+            sample_size=s.sample_size,
+            p_value=s.p_value,
+            discrimination=s.discrimination,
+        )
+        for question_id, s in stats.items()
+    ]
+    items.sort(key=lambda i: i.prompt)
+    return ItemAnalysisResponse(exam_id=exam_id, items=items)
 
 
 async def get_session_audit_trail(session: AsyncSession, exam_session_id: UUID) -> list[AuditEvent]:

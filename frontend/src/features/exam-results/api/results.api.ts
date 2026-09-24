@@ -31,9 +31,25 @@ export interface AuditTrail {
   events: AuditEvent[];
 }
 
+export interface ItemAnalysisRow {
+  question_id: string;
+  prompt: string;
+  sample_size: number;
+  // null means not enough data yet (see backend/app/modules/results/item_analysis.py),
+  // not zero -- render as "—", not "0%".
+  p_value: number | null;
+  discrimination: number | null;
+}
+
+export interface ItemAnalysis {
+  exam_id: string;
+  items: ItemAnalysisRow[];
+}
+
 export const resultsApi = {
   getMyResult: (examId: string) => api.get<StudentExamResult>(`/exams/${examId}/results`),
   getOverview: (examId: string) => api.get<ExamOverview>(`/exams/${examId}/overview`),
+  getItemAnalysis: (examId: string) => api.get<ItemAnalysis>(`/exams/${examId}/item-analysis`),
   getAuditTrail: (sessionId: string) => api.get<AuditTrail>(`/exam-sessions/${sessionId}/audit-trail`),
   // Backend returns full ExamSessionResponse; only session_id is used here.
   getSessionIdForStudent: (examId: string, studentId: string) =>
