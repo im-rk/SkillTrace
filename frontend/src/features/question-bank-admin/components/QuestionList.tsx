@@ -21,7 +21,7 @@ export function QuestionList({ questions, onDeleted }: { questions: Question[]; 
         <li key={q.id}>
           <span>{q.prompt}</span>
           <span> ({q.question_type}, {q.difficulty})</span>
-          <button type="button" onClick={() => handleDelete(q.id)}>
+          <button type="button" data-variant="danger" onClick={() => handleDelete(q.id)}>
             Delete
           </button>
         </li>

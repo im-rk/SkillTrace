@@ -94,9 +94,11 @@ function LiveExam({ examId, exam, sessionId }: { examId: string; exam: StudentEx
       <ConnectionStatusBanner connectionState={connectionState} />
       <ExamTimer secondsLeft={secondsLeft} connectionState={connectionState} />
       {exam.questions.length === 0 && <p>This exam has no questions yet.</p>}
-      {exam.questions.map((question) => (
-        <QuestionCard key={question.question_id} sessionId={sessionId} question={question} />
-      ))}
+      <div className="question-list">
+        {exam.questions.map((question) => (
+          <QuestionCard key={question.question_id} sessionId={sessionId} question={question} />
+        ))}
+      </div>
 
       {confirmingFinish ? (
         <p>
@@ -104,7 +106,7 @@ function LiveExam({ examId, exam, sessionId }: { examId: string; exam: StudentEx
           <button type="button" onClick={finish}>
             Yes, submit
           </button>{" "}
-          <button type="button" onClick={() => setConfirmingFinish(false)}>
+          <button type="button" data-variant="secondary" onClick={() => setConfirmingFinish(false)}>
             Cancel
           </button>
         </p>

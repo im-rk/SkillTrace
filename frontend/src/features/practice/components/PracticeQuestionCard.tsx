@@ -23,7 +23,7 @@ export function PracticeQuestionCard({
 
       {question.question_type === "multiple_choice" &&
         question.content.choices?.map((choice) => (
-          <label key={choice.id} style={{ display: "block" }}>
+          <label key={choice.id}>
             <input type="radio" name={question.id} value={choice.id} checked={answer === choice.id} onChange={(e) => setAnswer(e.target.value)} />
             {choice.text}
           </label>
@@ -31,7 +31,7 @@ export function PracticeQuestionCard({
 
       {question.question_type === "true_false" &&
         ["true", "false"].map((value) => (
-          <label key={value} style={{ display: "block" }}>
+          <label key={value}>
             <input type="radio" name={question.id} value={value} checked={answer === value} onChange={(e) => setAnswer(e.target.value)} />
             {value === "true" ? "True" : "False"}
           </label>
