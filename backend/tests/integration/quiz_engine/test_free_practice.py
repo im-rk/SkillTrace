@@ -328,6 +328,11 @@ async def test_progress_is_a_continuous_chain_across_exam_and_practice(client, d
     assert [pt["is_correct"] for pt in body["points"]] == [True, False, True]
     for prev, cur in zip(body["points"], body["points"][1:]):
         assert cur["mastery_before"] == pytest.approx(prev["mastery_after"], abs=1e-4)
+    # Viterbi's discrete state is present on every point and monotonic: once True
+    # (mastered, on the single best path through the whole sequence), never False again.
+    viterbi = [pt["viterbi_mastered"] for pt in body["points"]]
+    for earlier, later in zip(viterbi, viterbi[1:]):
+        assert not (earlier and not later)
     assert body["current_mastery"] == pytest.approx(body["points"][-1]["mastery_after"], abs=1e-4)
     assert body["initial_mastery"] == pytest.approx(0.3)
     assert body["mastery_threshold"] == pytest.approx(0.85)

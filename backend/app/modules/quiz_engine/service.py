@@ -21,6 +21,7 @@ from app.modules.quiz_engine import repository
 from app.modules.quiz_engine.domain.bkt.engine import update_mastery
 from app.modules.quiz_engine.domain.bkt.params import BKTParams
 from app.modules.quiz_engine.domain.bkt.policy import Difficulty, SessionOutcome, select_next_action
+from app.modules.quiz_engine.domain.bkt.viterbi import ViterbiStep, most_likely_trajectory
 from app.modules.quiz_engine.models import QuizSession, SessionStatus, Skill
 from app.modules.quiz_engine.schemas import (
     AnswerCreate,
@@ -288,6 +289,10 @@ async def get_progress(session: AsyncSession, student_id: UUID, skill_id: UUID) 
         raise _not_found("Skill")
     state = await repository.get_student_skill_state(session, student_id, skill_id)
     rows = await repository.list_progress_rows(session, student_id, skill_id)
+    viterbi_path = most_likely_trajectory(
+        [ViterbiStep(is_correct=r.is_correct, p_t=float(r.p_t_used), p_g=float(r.p_g_used), p_s=float(r.p_s_used)) for r in rows],
+        float(skill.p_l0),
+    )
     return ProgressResponse(
         skill_id=skill.id,
         skill_name=skill.name,
@@ -301,7 +306,8 @@ async def get_progress(session: AsyncSession, student_id: UUID, skill_id: UUID) 
                 mastery_after=float(r.mastery_after),
                 is_correct=r.is_correct,
                 source=r.source,
+                viterbi_mastered=mastered,
             )
-            for r in rows
+            for r, mastered in zip(rows, viterbi_path)
         ],
     )
