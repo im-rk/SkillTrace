@@ -211,6 +211,7 @@ code {
 /* ---------- cards ---------- */
 
 main > section {
+  overflow-x: auto; /* a wide table scrolls inside its card instead of stretching the page on a phone */
   margin-top: 20px;
   padding: 20px;
   border: 1px solid var(--border);
