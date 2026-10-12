@@ -4,6 +4,11 @@
 # Ignore the docs folder as requested
 docs/
 
+# Local-only reports and presentation guide (not committed)
+/PROJECT_REPORT.md
+/FINAL_PROJECT_REPORT.md
+/FINAL_REVIEW_PPT_GUIDE.md
+
 # IDEs and Editors
 .vscode/
 .idea/
