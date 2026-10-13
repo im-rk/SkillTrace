@@ -6,6 +6,8 @@ import { useAuth } from "@/features/auth/hooks/AuthContext";
 import { ApiError } from "@/lib/api-client";
 import { resultsApi, type AuditTrail } from "@/features/exam-results/api/results.api";
 import { AuditTrailViewer } from "@/features/exam-results/components/AuditTrailViewer";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { LoadingBlock, Notice } from "@/components/ui/Bits";
 
 function AuditTrailContent({ sessionId }: { sessionId: string }) {
   const [trail, setTrail] = useState<AuditTrail | null>(null);
@@ -26,13 +28,16 @@ function AuditTrailContent({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId]);
 
-  if (error) return <p role="alert">{error}</p>;
-  if (!trail) return <p>Loading…</p>;
-
   return (
-    <main>
-      <h1>Audit trail</h1>
-      <AuditTrailViewer events={trail.events} />
+    <main className="narrow">
+      <PageHeader
+        eyebrow="Exam session"
+        title="Audit trail"
+        lede="Everything recorded during this student's attempt: when they started, each answer they submitted, any lost connection, and how it ended."
+      />
+      {error && <Notice tone="error">{error}</Notice>}
+      {!trail && !error && <LoadingBlock lines={4} />}
+      {trail && <AuditTrailViewer events={trail.events} />}
     </main>
   );
 }
@@ -46,7 +51,9 @@ export default function AuditTrailPage({ params }: { params: Promise<{ sessionId
       {user && user.role !== "student" ? (
         <AuditTrailContent sessionId={sessionId} />
       ) : (
-        <p role="alert">Only instructors and admins can view the audit trail.</p>
+        <main className="narrow">
+          <Notice tone="error">Only instructors and admins can view the audit trail.</Notice>
+        </main>
       )}
     </RequireAuth>
   );

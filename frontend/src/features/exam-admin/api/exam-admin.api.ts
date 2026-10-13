@@ -15,6 +15,22 @@ export interface Exam {
   phase: "upcoming" | "live" | "ended" | "closed";
 }
 
+/** An exam as listed for instructors: the exam plus what they need to see at a glance. */
+export interface ExamListItem extends Exam {
+  skill_name: string;
+  question_count: number;
+  enrolled_count: number;
+}
+
+export interface AssignedQuestionRow {
+  question_id: string;
+  prompt: string;
+  question_type: "multiple_choice" | "true_false" | "text_input";
+  difficulty: "easy" | "medium" | "hard";
+  display_order: number;
+  points: string;
+}
+
 export interface ExamCreate {
   title: string;
   description?: string;
@@ -51,7 +67,8 @@ export interface AccessCodeCreate {
 }
 
 export const examAdminApi = {
-  list: () => api.get<Exam[]>("/exams"),
+  list: () => api.get<ExamListItem[]>("/exams"),
+  assignedQuestions: (examId: string) => api.get<AssignedQuestionRow[]>(`/exams/${examId}/assigned-questions`),
   get: (examId: string) => api.get<Exam>(`/exams/${examId}`),
   create: (data: ExamCreate) => api.post<Exam>("/exams", data),
   assignQuestions: (examId: string, questions: AssignedQuestion[]) =>

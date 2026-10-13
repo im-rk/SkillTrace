@@ -1,12 +1,12 @@
+import { formatWindow } from "@/lib/format";
 import { LOCAL_TIMEZONE } from "@/lib/timezone";
 
-/** Always shown in the viewer's own local timezone, labeled explicitly --
- * the phase doc calls out unlabeled/ambiguous exam times as a common
- * instructor/student confusion source in scheduling UIs. */
-export function ExamTimeDisplay({ iso }: { iso: string }) {
+/** Always shown in the viewer's own timezone, labelled explicitly: an unlabelled exam time is a classic source
+ * of instructor/student confusion. */
+export function ExamWindow({ start, end }: { start: string; end: string }) {
   return (
     <span>
-      {new Date(iso).toLocaleString()} ({LOCAL_TIMEZONE})
+      {formatWindow(start, end)} ({LOCAL_TIMEZONE})
     </span>
   );
 }
