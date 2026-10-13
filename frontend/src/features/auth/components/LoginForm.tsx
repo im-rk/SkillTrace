@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/features/auth/hooks/AuthContext";
+import { Notice } from "@/components/ui/Bits";
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -28,17 +29,25 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label>
-        Email
-        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
-      <label>
-        Password
-        <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={submitting}>
+    <form onSubmit={handleSubmit} className="stack-sm">
+      <div className="field">
+        <label htmlFor="email">Email</label>
+        <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="password">Password</label>
+        <input
+          id="password"
+          className="input"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={submitting}>
         {submitting ? "Logging in…" : "Log in"}
       </button>
     </form>

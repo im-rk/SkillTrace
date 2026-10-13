@@ -1,34 +1,46 @@
-import { pct } from "@/features/practice/api/practice.api";
+import { Meter } from "@/components/ui/Bits";
+import { pct } from "@/lib/format";
 
-/** Mastery as a bar that animates between values, with a tick at the mastery goal. */
-export function MasteryGauge({ mastery, threshold }: { mastery: number; threshold: number }) {
+/** Mastery as a big number over a bar, with a tick at the goal and the movement from the last answer. */
+export function MasteryGauge({
+  mastery,
+  threshold,
+  delta,
+  answered,
+  correct,
+}: {
+  mastery: number;
+  threshold: number;
+  delta: number | null;
+  answered: number;
+  correct: number;
+}) {
   const value = pct(mastery);
   const goal = pct(threshold);
-  const reached = mastery >= threshold;
   return (
-    <div>
-      <div
-        role="meter"
-        aria-label="Mastery"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={value}
-        aria-valuetext={`${value}%`}
-        style={{ position: "relative", height: 16, background: "#e5e7eb", borderRadius: 8, overflow: "hidden", maxWidth: 480 }}
-      >
-        <div
-          style={{
-            width: `${value}%`,
-            height: "100%",
-            background: reached ? "#16a34a" : "#2563eb",
-            transition: "width 600ms ease, background 600ms ease",
-          }}
-        />
-        <div style={{ position: "absolute", left: `${goal}%`, top: 0, bottom: 0, width: 2, background: "#111827" }} />
+    <section className="mastery-panel" aria-label="Your mastery">
+      <div className="row-between" style={{ alignItems: "flex-end", marginBottom: 14 }}>
+        <div>
+          <p className="eyebrow" style={{ marginBottom: 6 }}>
+            Your mastery
+          </p>
+          <div className="row" style={{ gap: 12 }}>
+            <span className="mastery-figure num">{value}%</span>
+            {delta !== null && delta !== 0 && (
+              <span className={`delta ${delta > 0 ? "up" : "down"}`} aria-label={`Changed by ${delta > 0 ? "plus" : "minus"} ${Math.abs(delta)} points`}>
+                {delta > 0 ? "▲" : "▼"} {Math.abs(delta)}
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <p className="muted small">Goal {goal}%</p>
+          <p className="muted small num">
+            {correct} of {answered} correct
+          </p>
+        </div>
       </div>
-      <small>
-        Mastery {value}% (goal {goal}%)
-      </small>
-    </div>
+      <Meter value={mastery} goal={threshold} large label="Mastery" />
+    </section>
   );
 }

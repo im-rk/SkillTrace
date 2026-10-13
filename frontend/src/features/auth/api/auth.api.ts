@@ -5,6 +5,8 @@ export type UserRole = "student" | "instructor" | "admin";
 export interface CurrentUser {
   user_id: string;
   role: UserRole;
+  display_name: string;
+  email: string;
 }
 
 export interface RegisterPayload {

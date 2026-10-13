@@ -1,14 +1,22 @@
 import Link from "next/link";
+import { AuthShell } from "@/features/auth/components/AuthShell";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export default function LoginPage() {
   return (
-    <main className="auth-card">
-      <h1>Log in</h1>
+    <AuthShell
+      title="Log in"
+      subtitle="Welcome back. Pick up where you left off."
+      footer={
+        <>
+          New here?{" "}
+          <Link href="/register" className="link">
+            Create a student account
+          </Link>
+        </>
+      }
+    >
       <LoginForm />
-      <p>
-        Need an account? <Link href="/register">Register</Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }

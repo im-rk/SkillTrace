@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api-client";
 import { authApi } from "@/features/auth/api/auth.api";
 import { useAuth } from "@/features/auth/hooks/AuthContext";
+import { Notice } from "@/components/ui/Bits";
 
 export function RegisterForm() {
   const { login } = useAuth();
@@ -21,7 +22,7 @@ export function RegisterForm() {
     setSubmitting(true);
     try {
       await authApi.register({ email, password, display_name: displayName });
-      // Public registration always creates a student account; log the new
+      // Public registration always creates a student account; sign the new
       // user straight in rather than making them re-type credentials.
       await login({ email, password });
       router.push("/dashboard");
@@ -33,27 +34,31 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label>
-        Display name
-        <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-      </label>
-      <label>
-        Email
-        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
-      <label>
-        Password
+    <form onSubmit={handleSubmit} className="stack-sm">
+      <div className="field">
+        <label htmlFor="display-name">Display name</label>
+        <input id="display-name" className="input" autoComplete="name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="email">Email</label>
+        <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="password">Password</label>
         <input
+          id="password"
+          className="input"
           type="password"
+          autoComplete="new-password"
           required
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={submitting}>
+        <span className="hint">At least 8 characters.</span>
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={submitting}>
         {submitting ? "Creating account…" : "Create account"}
       </button>
     </form>

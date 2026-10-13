@@ -1,4 +1,5 @@
 import type { ConnectionState } from "@/features/exam-taking/hooks/useExamSession";
+import { Notice } from "@/components/ui/Bits";
 
 const MESSAGES: Record<Exclude<ConnectionState, "connected">, string> = {
   connecting: "Connecting…",
@@ -8,10 +9,14 @@ const MESSAGES: Record<Exclude<ConnectionState, "connected">, string> = {
 
 /**
  * A silent freeze is the worst possible failure mode here -- from the
- * student's perspective it's indistinguishable from the app being broken.
+ * student's perspective it is indistinguishable from the app being broken.
  * Renders nothing only when the connection is actually healthy.
  */
 export function ConnectionStatusBanner({ connectionState }: { connectionState: ConnectionState }) {
   if (connectionState === "connected") return null;
-  return <div role="status">{MESSAGES[connectionState]}</div>;
+  return (
+    <Notice tone={connectionState === "connecting" ? "info" : "warn"} role="status">
+      {MESSAGES[connectionState]}
+    </Notice>
+  );
 }
