@@ -13,6 +13,7 @@
 
 1. [The problem](#1-the-problem)
 2. [What SkillTrace does](#2-what-skilltrace-does)
+   - [Screenshots](#screenshots)
 3. [Feature overview](#3-feature-overview)
 4. [System architecture](#4-system-architecture)
 5. [The probabilistic core: BKT](#5-the-probabilistic-core-bkt)
@@ -66,6 +67,29 @@ The same mastery number is used in two modes:
 
 ---
 
+## Screenshots
+
+Everything below is the running application with realistic demo data (a simulated class of 8 students).
+
+### For instructors
+
+| | |
+|---|---|
+| <a href="presentation/screenshots/shot_22_skills_list.png"><img src="presentation/screenshots/shot_22_skills_list.png" width="470" alt="Skills: each shows its question bank and how students are doing"></a><br><sub><b>Skills: each shows its question bank and how students are doing</b></sub> | <a href="presentation/screenshots/shot_13_skill_questions.png"><img src="presentation/screenshots/shot_13_skill_questions.png" width="470" alt="A skill's question bank, with its readiness for practice and exams"></a><br><sub><b>A skill's question bank, with its readiness for practice and exams</b></sub> |
+| <a href="presentation/screenshots/shot_23_question_editor.png"><img src="presentation/screenshots/shot_23_question_editor.png" width="470" alt="Question editor: lettered options, mark the correct one"></a><br><sub><b>Question editor: lettered options, mark the correct one</b></sub> | <a href="presentation/screenshots/shot_24_ai_drafts.png"><img src="presentation/screenshots/shot_24_ai_drafts.png" width="470" alt="Draft with AI: the instructor reviews every answer before saving"></a><br><sub><b>Draft with AI: the instructor reviews every answer before saving</b></sub> |
+| <a href="presentation/screenshots/shot_09_skill_learning_model.png"><img src="presentation/screenshots/shot_09_skill_learning_model.png" width="470" alt="Learning model settings, with a live preview of what the numbers do"></a><br><sub><b>Learning model settings, with a live preview of what the numbers do</b></sub> | <a href="presentation/screenshots/shot_12_admin_exams.png"><img src="presentation/screenshots/shot_12_admin_exams.png" width="470" alt="Exams: live, upcoming and finished, with question and student counts"></a><br><sub><b>Exams: live, upcoming and finished, with question and student counts</b></sub> |
+| <a href="presentation/screenshots/shot_20_admin_exam_detail.png"><img src="presentation/screenshots/shot_20_admin_exam_detail.png" width="470" alt="Exam setup: questions, access code, who has joined"></a><br><sub><b>Exam setup: questions, access code, who has joined</b></sub> | <a href="presentation/screenshots/shot_10_exam_results.png"><img src="presentation/screenshots/shot_10_exam_results.png" width="470" alt="Results: score and mastery for every student"></a><br><sub><b>Results: score and mastery for every student</b></sub> |
+
+### For students
+
+| | |
+|---|---|
+| <a href="presentation/screenshots/shot_02_student_dashboard.png"><img src="presentation/screenshots/shot_02_student_dashboard.png" width="470" alt="Dashboard: exams, an access-code box, and skills to practise"></a><br><sub><b>Dashboard: exams, an access-code box, and skills to practise</b></sub> | <a href="presentation/screenshots/shot_03_practice_question.png"><img src="presentation/screenshots/shot_03_practice_question.png" width="470" alt="Adaptive practice: a new student starts at 30% on an easy question"></a><br><sub><b>Adaptive practice: a new student starts at 30% on an easy question</b></sub> |
+| <a href="presentation/screenshots/shot_04_gauge_after_correct.png"><img src="presentation/screenshots/shot_04_gauge_after_correct.png" width="470" alt="One correct answer: mastery 30% to 71%"></a><br><sub><b>One correct answer: mastery 30% to 71%</b></sub> | <a href="presentation/screenshots/shot_07_progress_chart.png"><img src="presentation/screenshots/shot_07_progress_chart.png" width="470" alt="Progress: every answer, the goal, and where learning most likely happened"></a><br><sub><b>Progress: every answer, the goal, and where learning most likely happened</b></sub> |
+| <a href="presentation/screenshots/shot_08_exam_taking.png"><img src="presentation/screenshots/shot_08_exam_taking.png" width="470" alt="A timed exam with a server-synchronised countdown"></a><br><sub><b>A timed exam with a server-synchronised countdown</b></sub> | <a href="presentation/screenshots/shot_14_student_exam_result.png"><img src="presentation/screenshots/shot_14_student_exam_result.png" width="470" alt="A student's own result: score plus mastery"></a><br><sub><b>A student's own result: score plus mastery</b></sub> |
+
+---
+
 ## 3. Feature overview
 
 ### Students
@@ -77,18 +101,21 @@ The same mastery number is used in two modes:
 | **Progress chart** | Mastery after every answer, goal line, and a **"Likely mastered here"** marker computed with the Viterbi algorithm |
 | **Join an exam** | Redeem an **access code** (rate limited) to enrol |
 | **Timed exam** | Server-synchronised countdown over a **WebSocket**, one attempt, answers are final once submitted, "Answer recorded" when the worker has graded, auto-submit with a pushed "time is up" |
-| Results | Own score, answers and mastery after the exam closes |
+| Results | Own score and a mastery ring after the exam closes, with a link to see how mastery moved |
 
 ### Instructors
+A clear path: **skill, then its questions, then an exam**. The Overview page walks through the four steps with live counts.
+
 | Feature | Details |
 |---|---|
-| **Skills** | Create / edit / soft-delete skills; edit the four BKT parameters (P(L0), P(T), P(G), P(S)) and the mastery threshold per skill (validated to [0, 1]) |
-| **Readiness check** | A skill is "ready" for adaptive practice only if it has questions in all three difficulty tiers |
-| **Class mastery table** | Every student's current mastery, attempts and mastered flag per skill |
-| **Question bank** | Multiple-choice, true/false and text-input questions with difficulty and tags; **bulk import** from CSV/JSON with a per-row success/failure report (API) |
-| **AI question drafting** | "Generate with AI" asks an LLM (Groq) for draft questions for a skill; every draft is schema-validated, shown for **instructor review**, and only the ticked ones are saved (tagged `ai-generated`) |
-| **Exams** | Create with a start/end window and duration, assign ordered questions with points, generate **access codes** (max uses, expiry), close manually; expired exams are closed automatically |
-| **Results & analytics** | Per-student score and mastery, **item analysis** (difficulty and discrimination of every question), per-session **audit trail** |
+| **Skills** | A skill is a topic (for example Fractions). Each has its own question bank, learning model and class mastery table; create, edit and soft-delete |
+| **Readiness check** | A skill is "ready" for adaptive practice only with at least one easy, one medium and one hard question; the page says exactly what is missing |
+| **Question editor** | Multiple choice (lettered options, mark the correct one, add or remove), true/false, short answer; **Save** stays disabled until the question is complete |
+| **AI question drafting** | "Draft with AI" asks an LLM (Groq) for draft questions; each is schema-validated, shown with its answer for **instructor review**, and only the ticked ones are saved (tagged AI-drafted) |
+| **Bulk import** | Drop a CSV or JSON file; each row is checked on its own and a report says which rows failed and why |
+| **Learning model** | Edit the four BKT parameters and the mastery threshold per skill; a **live preview** shows what the numbers mean (after one correct answer, after one wrong, answers needed to master) |
+| **Exams** | Choose the skill, set a window and duration (one-click "Open now for 3 hours"), pick questions with points, generate **access codes**; a setup checklist shows what is still missing; questions lock once a student has started |
+| **Results and analytics** | Class tiles, score and mastery per student, **item analysis** (difficulty and discrimination of every question), per-session **audit trail** |
 
 ### Operations / platform
 | Feature | Details |
@@ -436,12 +463,12 @@ Interactive documentation is served by FastAPI at `http://localhost:8000/docs`.
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me` |
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me` (id, role, display name, email) |
 | Skills | `POST/GET /skills`, `PATCH/DELETE /skills/{id}`, `GET /skills/{id}/readiness`, `GET /skills/{id}/overview` |
 | Question bank | `POST/GET /question-bank/questions`, `GET/PATCH/DELETE …/{id}`, `POST …/bulk-import`, `POST …/bulk-import/csv`, `POST …/generate` (LLM drafts) |
 | Practice | `POST /quiz-sessions`, `GET /quiz-sessions/{id}`, `GET …/next-question`, `POST …/answer`, `POST …/quit` |
 | Mastery | `GET /students/{id}/mastery`, `GET /students/{id}/progress` |
-| Exams | `POST/GET /exams`, `GET /exams/{id}`, `POST /exams/{id}/questions`, `POST /exams/{id}/start`, `POST /exams/{id}/close` |
+| Exams | `POST/GET /exams` (the list includes skill name and question/student counts), `GET /exams/{id}`, `POST /exams/{id}/questions` (replaces the set until a student starts), `GET /exams/{id}/assigned-questions`, `POST /exams/{id}/start`, `POST /exams/{id}/close` |
 | Enrolment | `POST /exams/{id}/access-codes`, `POST /access-codes/{code}/redeem`, `GET /me/exams` |
 | Exam session | `GET /exam-sessions/{id}/timing`, `POST …/submit-answer`, `POST …/submit`, `GET /submissions/{id}`, `WS /ws/exam-sessions/{id}` |
 | Results | `GET /exams/{id}/overview`, `…/results`, `…/item-analysis`, `GET /exam-sessions/{id}/audit-trail` |
@@ -451,15 +478,15 @@ Interactive documentation is served by FastAPI at `http://localhost:8000/docs`.
 
 ## 11. Frontend
 
-Next.js 16 (App Router, React, TypeScript) with a CSS design system, light/dark themes, role-aware navigation and a layout that works down to phone width. Authentication uses the httpOnly cookie, and the exam UI is **server-authoritative** — the timer and score are never owned by the browser.
+Next.js 16 (App Router, React, TypeScript). A small hand-written design system (no UI kit): warm-neutral surfaces, one brand colour, amber reserved for goals and rust for errors, with **light and dark themes designed separately**, and a layout that works down to phone width. Authentication uses the httpOnly cookie, and the exam UI is **server-authoritative**: the timer and score are never owned by the browser.
 
 | Role | Pages |
 |---|---|
 | Public | `/login`, `/register` |
 | Student | `/dashboard`, `/practice`, `/quiz/[sessionId]`, `/progress`, `/enroll`, `/exams/[examId]`, `/exams/[examId]/results` |
-| Instructor | `/admin/skills`, `/admin/questions`, `/admin/exams`, `/admin/exams/[examId]`, `…/results`, `/admin/exam-sessions/[id]/audit-trail` |
+| Instructor | `/dashboard` (setup overview), `/admin/skills`, `/admin/skills/[skillId]` (Questions, Learning model, Students), `/admin/exams`, `/admin/exams/new`, `/admin/exams/[examId]`, `…/results`, `/admin/exam-sessions/[id]/audit-trail` |
 
-Charts use recharts (mastery over time with goal line and Viterbi marker).
+Design choices worth knowing: the progress chart uses a 2px line, markers with a surface ring, shape as well as colour for correct versus incorrect, a direct goal label, a hover readout and a table alternative; every form control has a real label; dialogs are native `<dialog>` elements.
 
 ---
 
@@ -468,8 +495,8 @@ Charts use recharts (mastery over time with goal line and Viterbi marker).
 | Layer | What | Result |
 |---|---|---|
 | Unit | BKT maths (exact values, boundaries, invalid input), policy, params, Viterbi, item analysis | pass |
-| Integration | Real PostgreSQL + Redis in a separate `skilltrace_test` database: mastery chain, free practice, durable queue and redelivery, WebSocket limits, concurrent start/submit, rate limiting, observability, mastery recompute, view rebuild | **278 tests pass** |
-| End-to-end | Playwright in a real browser against the real stack: register → practise to mastery, instructor edits parameters, exam journey with auto-submit and results, access control | **6 journeys pass** |
+| Integration | Real PostgreSQL + Redis in a separate `skilltrace_test` database: mastery chain, free practice, durable queue and redelivery, WebSocket limits, concurrent start/submit, rate limiting, observability, mastery recompute, view rebuild | **293 tests pass** |
+| End-to-end | Playwright in a real browser against the real stack: register → practise to mastery, the instructor building a skill, its questions and an exam from nothing, exam journey with auto-submit and results, AI-draft review, access control | **9 journeys pass** |
 | Cross-check | A live script drives the running stack and compares every mastery value against an independent re-implementation of BKT | 47 / 50 checks (the misses are the known limitation below) |
 
 ```bash
@@ -528,6 +555,8 @@ npm run build && npm run start             # or: npm run dev
 
 Demo accounts (password `Passw0rd!demo`): `instructor@skilltrace.dev`, `student@skilltrace.dev` (plus simulated classmates). `scripts.seed_demo` alone creates just the two accounts and one skill. See **[DEMO.md](DEMO.md)** for a guided walkthrough with the numbers to expect.
 
+For AI question drafting, put `GROQ_API_KEY=...` in a `.env` file at the repository root before `docker compose up` (it is git-ignored; without it that one panel says drafting is off).
+
 Stop with `docker compose stop`; reset everything with `docker compose down -v`.
 
 ---
@@ -567,7 +596,7 @@ Settings live in `backend/app/core/config.py` and are overridden through environ
 1. Order-preserving grading per session.
 2. Fit BKT parameters per skill (EM / Baum-Welch or pyBKT); add forgetting and spaced review.
 3. Skill prerequisite graph / Dynamic Bayesian Network for related skills.
-4. Courses, classes and multi-tenancy; class heat-maps and at-risk lists; CSV export; question-bank UI for bulk import.
+4. Courses, classes and multi-tenancy; class heat-maps and at-risk lists; CSV export.
 5. LLM free-text grading and hints (question drafting is done); data-driven difficulty calibration.
 6. Exam integrity and accessibility: shuffling, tab-switch detection, extra-time accommodations.
 7. Cloud deployment with monitoring, backups and load testing.
