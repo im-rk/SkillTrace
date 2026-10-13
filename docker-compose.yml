@@ -7,6 +7,9 @@ x-app-env: &app-env
   SECRET_KEY: super_secret_key_skilltrace_local_dev_12345
   # Set RATE_LIMIT_ENABLED=false when load-testing: every simulated student shares one source IP.
   RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+  # LLM question generation (optional). Put the key in the gitignored .env, never in this file.
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
 
 services:
   postgres:

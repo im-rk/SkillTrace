@@ -3,19 +3,22 @@ REST API routes for Question Bank.
 Includes POST /question-bank/bulk-import.
 """
 from uuid import UUID
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db.session import get_db
 from app.modules.iam.deps import get_current_user, require_instructor
 from app.modules.iam.schemas import TokenData
-from app.modules.question_bank import service, bulk_import_service
+from app.modules.quiz_engine import repository as skills_repository
+from app.modules.question_bank import service, bulk_import_service, llm_generation
 from app.modules.question_bank.schemas import (
     QuestionCreate,
     QuestionUpdate,
     QuestionResponse,
     BulkImportRequest,
     BulkImportResponse,
+    GenerateQuestionsRequest,
+    GenerateQuestionsResponse,
 )
 
 router = APIRouter(prefix="/question-bank", tags=["question-bank"])
@@ -89,3 +92,16 @@ async def bulk_import_csv(
     raw = await file.read()
     rows = bulk_import_service.parse_csv(raw)
     return await bulk_import_service.bulk_import(session, skill_id, rows, current_user.id)
+
+
+@router.post("/generate", response_model=GenerateQuestionsResponse)
+async def generate_questions(
+    data: GenerateQuestionsRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    """Draft questions with an LLM. Returns drafts only; the instructor saves the ones they approve."""
+    skill = await skills_repository.get_active_skill(session, data.skill_id)
+    if skill is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found")
+    return await llm_generation.generate_drafts(skill.id, skill.name, skill.description, data.count, data.difficulty, data.topic)

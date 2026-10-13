@@ -7,6 +7,7 @@ import { skillsApi, type Skill } from "@/features/question-bank-admin/api/skills
 import { questionBankApi, type Question } from "@/features/question-bank-admin/api/question-bank.api";
 import { CreateSkillForm } from "@/features/question-bank-admin/components/CreateSkillForm";
 import { QuestionForm } from "@/features/question-bank-admin/components/QuestionForm";
+import { AiGenerateForm } from "@/features/question-bank-admin/components/AiGenerateForm";
 import { QuestionList } from "@/features/question-bank-admin/components/QuestionList";
 import { BulkImportForm } from "@/features/question-bank-admin/components/BulkImportForm";
 
@@ -75,6 +76,11 @@ function QuestionBankAdminContent() {
         ) : (
           <QuestionForm skills={skills} onCreated={() => reloadQuestions(selectedSkillId)} />
         )}
+      </section>
+
+      <section>
+        <h2>Generate with AI</h2>
+        {skills.length === 0 ? <p>Add a skill first.</p> : <AiGenerateForm skills={skills} onSaved={() => reloadQuestions(selectedSkillId)} />}
       </section>
 
       <section>

@@ -72,7 +72,7 @@ Difficulty policy: mastery **< 40 %** → easy questions; **40 %–85 %** → me
    - Show the BKT parameters (initial knowledge, learning rate P(T), guess P(G), slip P(S)) and the **mastery threshold** — *these are the model's knobs, editable per skill*.
    - Show the **readiness** line: the skill has easy, medium and hard questions, so adaptive practice is possible.
    - Show the **class mastery table** below: each student's current mastery, attempts and mastered flag.
-2. **Question bank** → show the questions by skill and difficulty, the three question types (multiple choice, true/false, text input) and mention that **bulk import** (CSV/JSON, with a per-row success/failure report) is available through the API — open `http://localhost:8000/docs` → `question-bank` → `bulk-import`.
+2. **Question bank** → show the questions by skill and difficulty and the three question types (multiple choice, true/false, text input). **Generate with AI** *(needs `GROQ_API_KEY` in `.env`)*: pick Decimals, 5 questions, mixed, focus "rounding", click **Generate with AI** → review the drafts (the answer is shown beside each), untick any you dislike, **Save selected**. Say: *"the LLM only drafts; the instructor approves, and the mastery maths never involves the LLM."* Also mention that **bulk import** (CSV/JSON, with a per-row success/failure report) is available through the API — open `http://localhost:8000/docs` → `question-bank` → `bulk-import`.
 3. **Exams** → open **Fractions Live Quiz**: assigned questions, the access code, the *Close exam* button, and the derived phase (**live**).
 
 *Features shown: role-based access, skill & BKT configuration, readiness check, question bank, bulk import, exam scheduling, access codes.*

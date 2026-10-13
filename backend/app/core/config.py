@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_COOKIE_NAME: str = "access_token"
     COOKIE_SECURE: bool = False
 
+    # LLM question generation (Groq, OpenAI-compatible API). Empty key = feature off (503).
+    # The key is a secret: set it in the gitignored .env, never in code.
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
+
     # A minimal /ws/echo-test endpoint (see app/main.py), off by default. Flip it on
     # temporarily on a newly deployed host to verify the platform's reverse proxy
     # actually passes WebSocket upgrades through, BEFORE trusting the real exam-session

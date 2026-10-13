@@ -86,6 +86,7 @@ The same mastery number is used in two modes:
 | **Readiness check** | A skill is "ready" for adaptive practice only if it has questions in all three difficulty tiers |
 | **Class mastery table** | Every student's current mastery, attempts and mastered flag per skill |
 | **Question bank** | Multiple-choice, true/false and text-input questions with difficulty and tags; **bulk import** from CSV/JSON with a per-row success/failure report (API) |
+| **AI question drafting** | "Generate with AI" asks an LLM (Groq) for draft questions for a skill; every draft is schema-validated, shown for **instructor review**, and only the ticked ones are saved (tagged `ai-generated`) |
 | **Exams** | Create with a start/end window and duration, assign ordered questions with points, generate **access codes** (max uses, expiry), close manually; expired exams are closed automatically |
 | **Results & analytics** | Per-student score and mastery, **item analysis** (difficulty and discrimination of every question), per-session **audit trail** |
 
@@ -237,7 +238,11 @@ If a tier has no unanswered question the next tier is tried; if none is left the
 
 ### 5.6 Modern AI at the edges
 
-The trust-critical mastery inference stays a transparent, auditable probabilistic model. Modern AI is meant to sit around it — question authoring (bulk import is the entry point today), difficulty calibration, free-text grading and hints. These are **planned**, not implemented.
+The trust-critical mastery inference stays a transparent, auditable probabilistic model. Modern AI sits *around* it, never inside it.
+
+**Implemented — LLM question drafting.** An instructor picks a skill, a count, a difficulty and an optional focus; the backend asks an LLM (Groq's OpenAI-compatible API, model `openai/gpt-oss-120b` by default) for questions in a strict JSON format. Every item is validated against the same schema as a hand-written question (for example the correct choice must exist), invalid items are discarded, the requested difficulty overrides the model's own label, and the result is returned as **drafts only** — nothing is stored until the instructor reviews and approves them. The feature is off unless `GROQ_API_KEY` is set.
+
+**Planned:** difficulty calibration from response data, free-text grading and hints.
 
 ### 5.7 Where the maths lives
 
@@ -433,7 +438,7 @@ Interactive documentation is served by FastAPI at `http://localhost:8000/docs`.
 |---|---|
 | Auth | `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me` |
 | Skills | `POST/GET /skills`, `PATCH/DELETE /skills/{id}`, `GET /skills/{id}/readiness`, `GET /skills/{id}/overview` |
-| Question bank | `POST/GET /question-bank/questions`, `GET/PATCH/DELETE …/{id}`, `POST …/bulk-import`, `POST …/bulk-import/csv` |
+| Question bank | `POST/GET /question-bank/questions`, `GET/PATCH/DELETE …/{id}`, `POST …/bulk-import`, `POST …/bulk-import/csv`, `POST …/generate` (LLM drafts) |
 | Practice | `POST /quiz-sessions`, `GET /quiz-sessions/{id}`, `GET …/next-question`, `POST …/answer`, `POST …/quit` |
 | Mastery | `GET /students/{id}/mastery`, `GET /students/{id}/progress` |
 | Exams | `POST/GET /exams`, `GET /exams/{id}`, `POST /exams/{id}/questions`, `POST /exams/{id}/start`, `POST /exams/{id}/close` |
@@ -543,6 +548,8 @@ Settings live in `backend/app/core/config.py` and are overridden through environ
 | `REDEEM_RATE_LIMIT_PER_USER_PER_MINUTE` | 5 | Access-code attempts per user |
 | `RATE_LIMIT_ENABLED` | true | Disabled in the test suite |
 | `FRONTEND_ORIGIN` | `http://localhost:3000` | Exact CORS origin |
+| `GROQ_API_KEY` | *(empty = AI drafting off)* | Groq key for LLM question drafting — keep it in the gitignored `.env` |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Model used for drafting |
 
 ---
 
@@ -561,7 +568,7 @@ Settings live in `backend/app/core/config.py` and are overridden through environ
 2. Fit BKT parameters per skill (EM / Baum-Welch or pyBKT); add forgetting and spaced review.
 3. Skill prerequisite graph / Dynamic Bayesian Network for related skills.
 4. Courses, classes and multi-tenancy; class heat-maps and at-risk lists; CSV export; question-bank UI for bulk import.
-5. LLM-assisted question generation, free-text grading and hints.
+5. LLM free-text grading and hints (question drafting is done); data-driven difficulty calibration.
 6. Exam integrity and accessibility: shuffling, tab-switch detection, extra-time accommodations.
 7. Cloud deployment with monitoring, backups and load testing.
 

@@ -39,14 +39,6 @@ const login = async (page, email) => {
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL(/dashboard/);
 };
-const register = async (page, email, name) => {
-  await page.goto("http://localhost:3000/register");
-  await page.getByLabel("Display name").fill(name);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL(/dashboard/);
-};
 const ensureUser = async (page, email, name) => {
   const res = await fetch(`${API}/auth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: PASSWORD, display_name: name }) });
   await login(page, email);

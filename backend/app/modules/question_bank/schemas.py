@@ -112,3 +112,16 @@ class BulkImportResponse(BaseModel):
 class BulkImportRequest(BaseModel):
     skill_id: UUID
     rows: list[dict]
+
+
+class GenerateQuestionsRequest(BaseModel):
+    skill_id: UUID
+    count: int = Field(default=5, ge=1, le=10)
+    difficulty: Literal["easy", "medium", "hard", "mixed"] = "mixed"
+    topic: str | None = Field(default=None, max_length=200)
+
+
+class GenerateQuestionsResponse(BaseModel):
+    """Drafts only -- nothing is saved. The instructor reviews them and saves the ones they trust."""
+    drafts: list[QuestionCreate]
+    discarded: int  # model output that failed validation

@@ -50,10 +50,18 @@ export interface BulkImportResponse {
   results: BulkImportRowResult[];
 }
 
+export interface GenerateQuestionsResponse {
+  drafts: QuestionCreate[];
+  discarded: number;
+}
+
 export const questionBankApi = {
   // The backend requires skill_id or tags -- there's no "list every
   // question" mode -- so this always scopes to one skill.
   list: (skillId: string) => api.get<Question[]>(`/question-bank/questions?skill_id=${skillId}`),
+  // LLM drafts only -- nothing is saved until the instructor approves them via create().
+  generate: (body: { skill_id: string; count: number; difficulty: Difficulty | "mixed"; topic?: string }) =>
+    api.post<GenerateQuestionsResponse>("/question-bank/generate", body),
   create: (data: QuestionCreate) => api.post<Question>("/question-bank/questions", data),
   delete: (questionId: string) => api.delete<void>(`/question-bank/questions/${questionId}`),
   bulkImportCsv: (skillId: string, file: File) => {
