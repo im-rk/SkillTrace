@@ -118,6 +118,7 @@ async def test_case_5_protected_route_valid_token(client: AsyncClient):
     data = response.json()
     assert data["role"] == "student"
     assert "user_id" in data
+    assert data["email"] == email and data["display_name"]
 
 
 @pytest.mark.asyncio

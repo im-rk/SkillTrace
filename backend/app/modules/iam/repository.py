@@ -6,6 +6,11 @@ from sqlalchemy.future import select
 from app.modules.iam.models import User
 from app.modules.iam.schemas import UserCreate
 
+async def get_user_by_id(session: AsyncSession, user_id) -> User | None:
+    result = await session.execute(select(User).where(User.id == user_id))
+    return result.scalars().first()
+
+
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     result = await session.execute(
         select(User).where(User.email == email, User.deleted_at.is_(None))

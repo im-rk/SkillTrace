@@ -15,6 +15,8 @@ from app.modules.scheduling import service
 from app.modules.scheduling.schemas import (
     ExamCreate,
     ExamResponse,
+    ExamListItem,
+    AssignedQuestionResponse,
     AssignQuestionsRequest,
     ExamSessionResponse,
     StudentExamView,
@@ -32,7 +34,7 @@ async def create_exam(
     return await service.create_exam(session, data, current_user.id)
 
 
-@router.get("", response_model=list[ExamResponse])
+@router.get("", response_model=list[ExamListItem])
 async def list_exams(
     session: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(require_instructor),
@@ -47,6 +49,15 @@ async def get_exam(
     current_user: TokenData = Depends(require_instructor),
 ):
     return await service.get_exam(session, exam_id)
+
+
+@router.get("/{exam_id}/assigned-questions", response_model=list[AssignedQuestionResponse])
+async def list_assigned_questions(
+    exam_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_instructor),
+):
+    return await service.list_assigned_questions(session, exam_id)
 
 
 @router.get("/{exam_id}/students/{student_id}/session", response_model=ExamSessionResponse)

@@ -33,6 +33,14 @@ class Token(BaseModel):
     expires_in: int
 
 
+class MeResponse(BaseModel):
+    """Who is signed in: enough to greet them and show an avatar."""
+    user_id: UUID
+    role: UserRole
+    display_name: str
+    email: EmailStr
+
+
 class TokenData(BaseModel):
     user_id: UUID
     role: UserRole

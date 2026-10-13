@@ -14,7 +14,10 @@ from app.core.redis_client import get_redis
 from app.modules.scheduling import repository, locking
 from app.modules.scheduling.models import Exam, ExamQuestion, ExamStatus
 from app.modules.scheduling.schemas import (
+    AssignedQuestionResponse,
     ExamCreate,
+    ExamListItem,
+    ExamResponse,
     AssignQuestionsRequest,
     ExamSessionResponse,
     StudentExamQuestion,
@@ -41,8 +44,31 @@ async def create_exam(session: AsyncSession, data: ExamCreate, actor_id: UUID) -
     return await repository.create_exam(session, exam)
 
 
-async def list_exams(session: AsyncSession) -> list[Exam]:
-    return await repository.list_exams(session)
+async def list_exams(session: AsyncSession) -> list[ExamListItem]:
+    return [
+        ExamListItem(
+            **ExamResponse.model_validate(exam).model_dump(exclude={"phase"}),
+            skill_name=skill_name,
+            question_count=question_count,
+            enrolled_count=enrolled_count,
+        )
+        for exam, skill_name, question_count, enrolled_count in await repository.list_exams_with_counts(session)
+    ]
+
+
+async def list_assigned_questions(session: AsyncSession, exam_id: UUID) -> list[AssignedQuestionResponse]:
+    await get_exam(session, exam_id)
+    return [
+        AssignedQuestionResponse(
+            question_id=q.id,
+            prompt=q.prompt,
+            question_type=q.question_type.value,
+            difficulty=q.difficulty.value,
+            display_order=eq.display_order,
+            points=eq.points,
+        )
+        for eq, q in await repository.list_assigned_questions(session, exam_id)
+    ]
 
 
 async def get_exam(session: AsyncSession, exam_id: UUID) -> Exam:
@@ -66,6 +92,10 @@ async def assign_questions(session: AsyncSession, exam_id: UUID, data: AssignQue
     exam = await repository.get_exam_by_id(session, exam_id)
     if exam is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
+
+    # Once a student has started, the question set is part of what they sat -- changing it would rewrite history.
+    if await repository.has_sessions(session, exam_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Students have already started this exam, so its questions can no longer change")
 
     question_ids = [item.question_id for item in data.questions]
     questions_by_id = {q.id: q for q in await get_questions_by_ids(session, question_ids)}

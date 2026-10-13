@@ -15,6 +15,7 @@ from app.modules.evaluation_pipeline.tasks import _process_submission
 from app.modules.quiz_engine.domain.bkt.engine import update_mastery
 from app.modules.quiz_engine.domain.bkt.params import BKTParams
 from app.modules.quiz_engine.models import Response, StudentSkillState
+from app.modules.scheduling.models import ExamQuestion
 
 
 @pytest.mark.asyncio
@@ -34,12 +35,11 @@ async def test_concurrent_grading_keeps_the_mastery_chain_intact(client, db_sess
             headers=started_exam["instructor_headers"],
         )
         extra.append(res.json()["id"])
-    assign = await client.post(
-        f"/exams/{started_exam['exam_id']}/questions",
-        json={"questions": [{"question_id": q, "display_order": 10 + i, "points": "1.0"} for i, q in enumerate(extra)]},
-        headers=started_exam["instructor_headers"],
-    )
-    assert assign.status_code == 204, assign.text
+    # Setup, not under test: put the extra questions on the (already started) exam directly. The API deliberately
+    # refuses to change an exam's questions once a student has started.
+    for i, question_id in enumerate(extra):
+        db_session.add(ExamQuestion(exam_id=uuid.UUID(started_exam["exam_id"]), question_id=uuid.UUID(question_id), question_version=1, display_order=10 + i, points=1))
+    await db_session.commit()
 
     question_ids = started_exam["question_ids"] + extra
     # Alternate right/wrong: correct and incorrect updates do not commute, so any

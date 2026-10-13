@@ -38,6 +38,23 @@ class ExamResponse(BaseModel):
         return exam_phase(self.status, self.start_time, self.end_time)
 
 
+class ExamListItem(ExamResponse):
+    """An exam in the instructor's list, with what they need to see at a glance."""
+    skill_name: str
+    question_count: int
+    enrolled_count: int
+
+
+class AssignedQuestionResponse(BaseModel):
+    """A question as assigned to an exam -- instructor view (a student never gets this)."""
+    question_id: UUID
+    prompt: str
+    question_type: str
+    difficulty: str
+    display_order: int
+    points: Decimal
+
+
 class ExamQuestionAssign(BaseModel):
     question_id: UUID
     display_order: int

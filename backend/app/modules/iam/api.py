@@ -2,11 +2,12 @@
 REST API routes for IAM.
 Includes /auth/register, /auth/login.
 """
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.db.session import get_db
-from app.modules.iam.schemas import UserCreate, UserLogin, Token, UserResponse, TokenData
+from app.modules.iam import repository
+from app.modules.iam.schemas import UserCreate, UserLogin, Token, UserResponse, TokenData, MeResponse
 from app.modules.iam.service import register_user, authenticate_user
 from app.api.v1.rate_limits import auth_rate_limit
 from app.modules.iam.deps import get_current_user, require_instructor, require_admin
@@ -43,12 +44,15 @@ async def login(login_data: UserLogin, response: Response, session: AsyncSession
 async def logout(response: Response):
     response.delete_cookie(key=settings.ACCESS_TOKEN_COOKIE_NAME, path="/")
 
-@router.get("/me", response_model=TokenData)
-async def me(current_user: TokenData = Depends(get_current_user)):
+@router.get("/me", response_model=MeResponse)
+async def me(current_user: TokenData = Depends(get_current_user), session: AsyncSession = Depends(get_db)):
     """
-    Return current user data from the JWT token (stateless verification).
+    Who is signed in. The token proves identity and role; the name and email are read from the user row.
     """
-    return current_user
+    user = await repository.get_user_by_id(session, current_user.user_id)
+    if user is None:  # a valid token for a user that no longer exists
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account not found")
+    return MeResponse(user_id=user.id, role=user.role, display_name=user.display_name, email=user.email)
 
 @router.get("/instructor-only", response_model=TokenData)
 async def instructor_only_endpoint(current_user: TokenData = Depends(require_instructor)):
