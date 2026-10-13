@@ -39,14 +39,20 @@ export async function newSession(browser: Browser): Promise<{ context: BrowserCo
   return { context, page: await context.newPage() };
 }
 
-/** Instructor creates an exam on the demo skill, assigns the given question prompts, returns ids + an access code. */
+/** Picks a skill in the exam form by its name (the option text also carries the question count). */
+export async function selectSkill(page: Page, name: string): Promise<void> {
+  const value = await page.locator("#exam-skill option", { hasText: new RegExp(`^${name}`) }).first().getAttribute("value");
+  await page.locator("#exam-skill").selectOption(value!);
+}
+
+/** Instructor creates an exam on the seeded Fractions skill, picks the given question prompts, and gets an access code. */
 export async function createExamWithCode(
   page: Page,
   opts: { title: string; durationMinutes: number; prompts: string[] },
 ): Promise<{ examId: string; code: string }> {
-  await page.goto("/admin/exams");
+  await page.goto("/admin/exams/new");
   await page.getByLabel("Title").fill(opts.title);
-  await page.getByRole("combobox").selectOption({ label: "Fractions" }); // the seeded skill with a full question pool
+  await selectSkill(page, "Fractions"); // the seeded skill with a full question pool
   await page.getByLabel(/Start time/).fill(localDateTime(-5));
   await page.getByLabel(/End time/).fill(localDateTime(120));
   await page.getByLabel("Duration (minutes)").fill(String(opts.durationMinutes));
@@ -57,11 +63,11 @@ export async function createExamWithCode(
   for (const prompt of opts.prompts) {
     await page.getByLabel(prompt, { exact: true }).check();
   }
-  await page.getByRole("button", { name: "Assign selected questions" }).click();
-  await expect(page.getByText("Questions assigned.")).toBeVisible();
+  await page.getByRole("button", { name: "Save questions" }).click();
+  await expect(page.getByText("Questions saved.")).toBeVisible();
 
   await page.getByRole("button", { name: "Generate access code" }).click();
-  const codeLocator = page.locator("code").first();
+  const codeLocator = page.locator('code[aria-label="Access code"]');
   await expect(codeLocator).toBeVisible();
   return { examId, code: (await codeLocator.textContent())!.trim() };
 }

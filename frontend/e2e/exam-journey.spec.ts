@@ -64,8 +64,9 @@ test.describe("exam journey (instructor + student, real browser, real backend)",
 
     // --- instructor closes the exam; results are computed once, async -------
     await instructor.page.goto(`/admin/exams/${examId}`);
+    instructor.page.once("dialog", (d) => d.accept());
     await instructor.page.getByRole("button", { name: "Close exam" }).click();
-    await expect(instructor.page.getByText("Status: closed")).toBeVisible();
+    await expect(instructor.page.getByText("This exam is closed")).toBeVisible();
 
     await expect(async () => {
       await instructor.page.goto(`/admin/exams/${examId}/results`);
